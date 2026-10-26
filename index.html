@@ -140,7 +140,30 @@
     flex:1;min-width:140px;font:inherit;font-size:.9rem;padding:10px;border-radius:10px;cursor:pointer;
     background:transparent;color:var(--ink);border:1px solid var(--line)
   }
-  .acciones button.peligro{color:var(--danger)}
+  .acciones button.principal{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+  .acciones button:disabled{opacity:.45;cursor:default}
+  /* Los botones de abajo son de la vista de compras: se ocultan mientras editás con el + */
+  body.editando-lista .acciones{display:none}
+
+  /* ---------- Hoja para imprimir ---------- */
+  #impresion{display:none}
+  @media print{
+    @page{margin:14mm}
+    body{background:#fff !important;padding:0 !important}
+    body > *:not(#impresion){display:none !important}
+    #impresion{display:block;color:#000;font:12pt/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+    #impresion h1{font-size:18pt;margin:0 0 2pt}
+    #impresion .fecha{color:#555;font-size:10pt;margin-bottom:12pt}
+    #impresion .cols{columns:2;column-gap:18mm}
+    #impresion section{break-inside:avoid;margin-bottom:10pt}
+    #impresion h2{font-size:9.5pt;text-transform:uppercase;letter-spacing:.08em;color:#444;margin:0 0 4pt;border-bottom:1px solid #bbb;padding-bottom:2pt}
+    #impresion ul{list-style:none;margin:0;padding:0;border:0;box-shadow:none;background:none;border-radius:0}
+    #impresion li{display:flex;align-items:center;gap:8pt;padding:3pt 0;border:0}
+    #impresion .caja{width:11pt;height:11pt;border:1.3pt solid #000;border-radius:2pt;flex:none}
+    #impresion .ic{width:16pt;text-align:center;flex:none}
+    #impresion .ic img{width:14pt;height:14pt;object-fit:cover;border-radius:2pt;vertical-align:middle}
+    #impresion .q{color:#444;font-size:10.5pt;margin-left:auto;padding-left:8pt}
+  }
   /* Las cruces para borrar solo se ven con el recuadro de agregar abierto (botón +) */
   #lista .borrar{display:none}
   body.editando-lista #lista .borrar{display:block}
@@ -189,7 +212,16 @@
   .bas-barra button{font:inherit;font-weight:600;border:0;background:none;color:var(--brand);padding:6px 0;cursor:pointer}
   .bas-barra .der{margin-left:auto}
   .bas-grupo h4{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 0 6px 4px}
-  .ya-chip{flex:none;font-size:.72rem;color:var(--muted)}
+  .ya-chip{flex:none;font-size:.72rem;color:var(--brand);font-weight:600;white-space:nowrap}
+  li.ya-en-lista{opacity:.55}
+  .tilde-ya{
+    flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+    background:var(--brand-soft);color:var(--brand);font-weight:700;font-size:.95rem
+  }
+  .bas-info{
+    background:var(--brand-soft);color:var(--brand);border-radius:12px;padding:12px 14px;
+    font-size:.9rem;font-weight:600;margin-bottom:6px;line-height:1.35
+  }
   .bas-alta{
     display:grid;grid-template-columns:1fr 64px 46px;gap:8px;background:var(--card);
     border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px
@@ -290,8 +322,10 @@
   <main id="lista"></main>
 
   <div class="acciones" id="acciones" hidden>
+    <button id="imprimir"></button>
+    <button id="compartir"></button>
     <button id="desmarcar"></button>
-    <button id="limpiar" class="peligro"></button>
+    <button id="limpiar" class="principal"></button>
   </div>
 </div>
 
@@ -300,6 +334,9 @@
     <path d="M12 5v14M5 12h14"/>
   </svg>
 </button>
+
+<!-- Contenido que se arma solo al imprimir -->
+<div id="impresion" aria-hidden="true"></div>
 
 <!-- Ventana para el escaneo -->
 <div class="velo" id="velo" hidden>
@@ -365,7 +402,17 @@ const TEXTOS = {
     vacio: "La lista está vacía.<br>Agregá el primer producto arriba.",
     enCarrito: "✓ En el changuito",
     desmarcar: "Desmarcar todo",
-    limpiar: "Quitar lo del changuito",
+    limpiar: "✅ Compra terminada",
+    imprimir: "🖨️ Imprimir",
+    compartir: "📤 Compartir",
+    nadaEnCarrito: "Todavía no tildaste nada en el changuito.",
+    confirmTerminar: (c, p) => `¿Terminaste la compra?\n\nSe quitan los ${c} producto(s) que compraste.` +
+      (p ? `\nLos ${p} que quedaron sin comprar siguen en la lista.` : `\nLa lista queda vacía para la próxima.`),
+    compraLista: "🛒 ¡Compra terminada!",
+    copiado: "Lista copiada. Pegala donde quieras (WhatsApp, mail…).",
+    noCopiado: "No se pudo compartir ni copiar la lista.",
+    textoTitulo: "🛒 Lista del súper",
+    faltan: "Para comprar",
     confirmBorrar: n => `¿Borrar "${n}"?`,
     confirmLimpiar: n => `¿Quitar ${n} producto(s) que ya están en el changuito?`,
     borrar: n => `Borrar ${n}`,
@@ -399,7 +446,8 @@ const TEXTOS = {
     basNinguno: "Ninguno",
     basEditar: "✏️ Editar",
     basListo: "Listo",
-    basYaEsta: "ya está en la lista",
+    basYaEsta: "✓ en tu lista",
+    basTodoEsta: "👍 Todo lo de tu lista básica ya está en tu lista de compras. Cuando lo compres y lo quites del changuito, vuelve a aparecer acá para agregarlo.",
     basVacia: "Todavía no hay productos en tu lista básica. Agregalos acá arriba.",
     basCopiar: n => n === 1 ? "Copiar 1 producto de la lista actual" : `Copiar los ${n} productos de la lista actual`,
     basQuitar: n => `Quitar ${n} de la lista básica`,
@@ -432,7 +480,17 @@ Ignorá tachaduras, títulos, fechas y garabatos que no sean productos.`
     vacio: "A lista está vazia.<br>Adicione o primeiro produto acima.",
     enCarrito: "✓ No carrinho",
     desmarcar: "Desmarcar tudo",
-    limpiar: "Remover o que está no carrinho",
+    limpiar: "✅ Compra concluída",
+    imprimir: "🖨️ Imprimir",
+    compartir: "📤 Compartilhar",
+    nadaEnCarrito: "Você ainda não marcou nada no carrinho.",
+    confirmTerminar: (c, p) => `Terminou a compra?\n\nOs ${c} produto(s) comprados serão removidos.` +
+      (p ? `\nOs ${p} que ficaram sem comprar continuam na lista.` : `\nA lista fica vazia para a próxima.`),
+    compraLista: "🛒 Compra concluída!",
+    copiado: "Lista copiada. Cole onde quiser (WhatsApp, e-mail…).",
+    noCopiado: "Não foi possível compartilhar nem copiar a lista.",
+    textoTitulo: "🛒 Lista do mercado",
+    faltan: "Para comprar",
     confirmBorrar: n => `Apagar "${n}"?`,
     confirmLimpiar: n => `Remover ${n} produto(s) que já estão no carrinho?`,
     borrar: n => `Apagar ${n}`,
@@ -466,7 +524,8 @@ Ignorá tachaduras, títulos, fechas y garabatos que no sean productos.`
     basNinguno: "Nenhum",
     basEditar: "✏️ Editar",
     basListo: "Pronto",
-    basYaEsta: "já está na lista",
+    basYaEsta: "✓ na sua lista",
+    basTodoEsta: "👍 Tudo da sua lista básica já está na sua lista de compras. Quando comprar e remover do carrinho, volta a aparecer aqui para adicionar.",
     basVacia: "Ainda não há produtos na sua lista básica. Adicione-os aqui em cima.",
     basCopiar: n => n === 1 ? "Copiar 1 produto da lista atual" : `Copiar os ${n} produtos da lista atual`,
     basQuitar: n => `Remover ${n} da lista básica`,
@@ -527,6 +586,8 @@ function aplicarIdioma(){
   etiquetaFab();
   $("desmarcar").textContent = t.desmarcar;
   $("limpiar").textContent = t.limpiar;
+  $("imprimir").textContent = t.imprimir;
+  $("compartir").textContent = t.compartir;
   sel.setAttribute("aria-label", t.categoria);
   const actual = sel.value;
   sel.innerHTML = "";
@@ -625,6 +686,8 @@ function render(){
   $("barra").style.width = total ? (hechos / total * 100) + "%" : "0";
   $("resumen").textContent = total ? t.resumen(hechos, total) : "";
   $("acciones").hidden = total === 0;
+  $("limpiar").disabled = hechos === 0;
+  $("desmarcar").disabled = hechos === 0;
 
   if (!total){
     $("lista").innerHTML = `<div class="vacio"><div class="emoji">🧺</div><p>${t.vacio}</p></div>`;
@@ -709,11 +772,79 @@ $("desmarcar").addEventListener("click", () => {
   for (const [id, it] of Object.entries(items)) if (it.enCarrito){ cambios[`${id}/enCarrito`] = false; cambios[`${id}/marcado`] = null; }
   if (Object.keys(cambios).length) store.lote(cambios);
 });
+/* Compra terminada: saca lo que se compró; lo que quedó sin comprar sigue en la lista */
 $("limpiar").addEventListener("click", () => {
   const ids = Object.entries(items).filter(([, it]) => it.enCarrito).map(([id]) => id);
-  if (!ids.length) return;
-  if (!confirm(T().confirmLimpiar(ids.length))) return;
+  if (!ids.length){ alert(T().nadaEnCarrito); return; }
+  const quedan = Object.values(items).filter(it => !it.enCarrito).length;
+  if (!confirm(T().confirmTerminar(ids.length, quedan))) return;
   store.lote(Object.fromEntries(ids.map(id => [id, null])));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+/* Productos a usar para imprimir/compartir: lo pendiente; si no hay nada pendiente, todo */
+function productosParaSacar(){
+  const todos = Object.values(items);
+  const pend = todos.filter(i => !i.enCarrito);
+  const lista = pend.length ? pend : todos;
+  const loc = idioma === "pt" ? "pt" : "es";
+  return CATEGORIAS.map(cat => ({
+    cat,
+    prods: lista.filter(i => (CATEGORIAS.includes(i.categoria) ? i.categoria : "Otros") === cat)
+                .sort((a, b) => a.nombre.localeCompare(b.nombre, loc))
+  })).filter(g => g.prods.length);
+}
+const fechaHoy = () => new Date().toLocaleDateString(idioma === "pt" ? "pt-BR" : "es-AR",
+  { weekday: "long", day: "numeric", month: "long" });
+
+/* ---- Imprimir ---- */
+$("imprimir").addEventListener("click", () => {
+  const t = T();
+  $("impresion").innerHTML = `
+    <h1>${esc(t.textoTitulo)}</h1>
+    <div class="fecha">${esc(t.faltan)} · ${esc(fechaHoy())}</div>
+    <div class="cols">${productosParaSacar().map(g => `
+      <section><h2>${esc(nombreCat(g.cat))}</h2><ul>${g.prods.map(i => {
+        const ic = iconoDe(i.nombre);
+        return `<li><span class="caja"></span>
+          <span class="ic">${ic ? (ic.startsWith("data:image/") ? `<img src="${esc(ic)}" alt="">` : esc(ic)) : ""}</span>
+          <span>${esc(i.nombre)}</span>${i.cantidad ? `<span class="q">${esc(i.cantidad)}</span>` : ""}</li>`;
+      }).join("")}</ul></section>`).join("")}
+    </div>`;
+  setTimeout(() => window.print(), 50);
+});
+
+/* ---- Compartir ---- */
+function textoLista(){
+  const t = T();
+  let txt = `${t.textoTitulo}\n${fechaHoy()}\n`;
+  for (const g of productosParaSacar()){
+    txt += `\n*${nombreCat(g.cat).toUpperCase()}*\n`;
+    for (const i of g.prods){
+      const ic = iconoDe(i.nombre);
+      const emoji = ic && !ic.startsWith("data:image/") ? ic + " " : "";
+      txt += `☐ ${emoji}${i.nombre}${i.cantidad ? ` (${i.cantidad})` : ""}\n`;
+    }
+  }
+  return txt.trim();
+}
+async function copiarTexto(txt){
+  try { await navigator.clipboard.writeText(txt); return true; }
+  catch {
+    const ta = document.createElement("textarea");
+    ta.value = txt; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch {}
+    ta.remove(); return ok;
+  }
+}
+$("compartir").addEventListener("click", async () => {
+  const txt = textoLista();
+  if (navigator.share && esTactil()){
+    try { await navigator.share({ title: T().textoTitulo, text: txt }); return; }
+    catch (e) { if (e?.name === "AbortError") return; }   // si cancelaste, no hacemos nada
+  }
+  alert(await copiarTexto(txt) ? T().copiado : T().noCopiado);
 });
 
 /* ============================================================
@@ -1111,7 +1242,7 @@ function refrescarBasica(){
   const t = T(), caja = $("basLista");
   if (!caja) return;
   // Si estás escribiendo una cantidad en la lista, esperamos a que termines
-  if (caja.contains(document.activeElement) && document.activeElement.tagName === "INPUT"){
+  if (caja.contains(document.activeElement) && document.activeElement.dataset?.cant){
     basica.refrescoPendiente = true; return;
   }
   basica.refrescoPendiente = false;
@@ -1146,16 +1277,24 @@ function refrescarBasica(){
             <button type="button" data-ico="cerrar">${esc(t.icoListo)}</button>
           </div>
         </li>` : ""}` : `
+${pend.has(norm(b.nombre)) ? `
+        <li class="ya-en-lista">
+          <span class="tilde-ya" aria-hidden="true">✓</span>
+          ${htmlIcono(b.icono, "ico")}
+          <span class="nombre" style="flex:1">${esc(b.nombre)}</span>
+          <span class="ya-chip">${esc(t.basYaEsta)}</span>
+        </li>` : `
         <li>
           <label class="item">
             <input type="checkbox" data-bsel="${esc(b.id)}" ${basica.sel.has(b.id) ? "checked" : ""} aria-label="${esc(b.nombre)}">
             ${htmlIcono(b.icono, "ico")}
             <span class="nombre">${esc(b.nombre)}</span>
           </label>
-          ${pend.has(norm(b.nombre)) ? `<span class="ya-chip">${esc(t.basYaEsta)}</span>`
-            : b.cantidad ? `<span class="cant">${esc(b.cantidad)}</span>` : ""}
-        </li>`).join("")}</ul></div>`;
+          ${b.cantidad ? `<span class="cant">${esc(b.cantidad)}</span>` : ""}
+        </li>`}`).join("")}</ul></div>`;
     }
+    const disponibles = lista.filter(b => !pend.has(norm(b.nombre))).length;
+    if (!basica.editando && disponibles === 0) html = `<div class="bas-info">${esc(t.basTodoEsta)}</div>` + html;
     caja.innerHTML = html;
   }
   if (basica.editando){
@@ -1166,8 +1305,19 @@ function refrescarBasica(){
   }
 }
 
+function nadaParaAgregar(){
+  const pend = pendientesNorm();
+  return Object.values(basicos).length > 0 && Object.values(basicos).every(b => pend.has(norm(b.nombre)));
+}
 function actualizarBotonBasica(){
   const n = basica.sel.size;
+  if (nadaParaAgregar()){
+    $("hojaConfirmar").textContent = T().cerrar;
+    $("hojaConfirmar").disabled = false;
+    $("hojaCancelar").hidden = true;
+    return;
+  }
+  $("hojaCancelar").hidden = false;
   $("hojaConfirmar").textContent = T().agregarN(n);
   $("hojaConfirmar").disabled = n === 0;
 }
@@ -1240,7 +1390,9 @@ $("hojaCuerpo").addEventListener("click", e => {
   const btn = e.target.closest("[data-bas]");
   if (!btn) return;
   switch (btn.dataset.bas){
-    case "todos":   basica.sel = new Set(Object.keys(basicos)); refrescarBasica(); break;
+    case "todos":   { const pend = pendientesNorm();
+                      basica.sel = new Set(Object.entries(basicos).filter(([, b]) => !pend.has(norm(b.nombre))).map(([id]) => id));
+                      refrescarBasica(); break; }
     case "ninguno": basica.sel.clear(); refrescarBasica(); break;
     case "editar":  basica.editando = true; pintarBasica(); break;
     case "copiar":  faltanEnBasica().forEach(agregarBasico); break;
@@ -1265,6 +1417,7 @@ function confirmarBasica(){
     pintarBasica();
     return;
   }
+  if (nadaParaAgregar()){ cerrarHoja(); return; }
   [...basica.sel].map(id => basicos[id]).filter(Boolean).forEach(b => agregarProducto(b));
   cerrarHoja();
 }
