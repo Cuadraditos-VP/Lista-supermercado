@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f7a4d">
+<meta name="color-scheme" content="only light">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Súper">
+<title>Lista del súper</title>
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root{
+    --bg:#f4f1ea; --card:#ffffff; --ink:#1d2320; --muted:#6b736f; --line:#e3ded3;
+    --brand:#1f7a4d; --brand-ink:#ffffff; --brand-soft:#e3f1e9;
+    --danger:#c0392b; --done:#9aa39e; --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.05);
+    --velo:rgba(20,24,22,.45);
+  }
+  *{box-sizing:border-box}
+  :root{color-scheme:only light}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  body.modal-abierto{overflow:hidden}
+  .wrap{max-width:640px;margin:0 auto;padding:0 16px 40px}
+
+  header{
+    position:sticky;top:0;z-index:5;background:var(--bg);
+    padding:calc(14px + env(safe-area-inset-top)) 0 12px;
+  }
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  h1{font-size:1.45rem;margin:0;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .derecha{display:flex;align-items:center;gap:10px;flex:none}
+  .estado{font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .punto{width:8px;height:8px;border-radius:50%;background:var(--done)}
+  .punto.on{background:var(--brand)}
+  .punto.off{background:var(--danger)}
+  @media (max-width:430px){ #estadoTxt{display:none} h1{font-size:1.3rem} }
+
+  .idioma{display:flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;background:var(--card)}
+  .idioma button{
+    font:inherit;font-size:.75rem;font-weight:700;letter-spacing:.04em;border:0;background:transparent;
+    color:var(--muted);padding:5px 10px;cursor:pointer
+  }
+  .idioma button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink)}
+
+  .progreso{margin-top:10px;height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+  .progreso > div{height:100%;width:0;background:var(--brand);transition:width .3s}
+  .resumen{margin-top:6px;font-size:.82rem;color:var(--muted);min-height:1.1em}
+
+  form.alta{
+    margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:10px;box-shadow:var(--shadow);display:grid;gap:8px;
+    grid-template-columns:1fr 70px;
+  }
+  form.alta input, form.alta select, .revision input, .revision select{
+    font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;min-width:0;width:100%;
+  }
+  form.alta select option, .revision select option{background:var(--card);color:var(--ink)}
+  form.alta input:focus, form.alta select:focus, .revision input:focus, .revision select:focus{outline:2px solid var(--brand);outline-offset:-1px;border-color:transparent}
+  form.alta select{grid-column:1/-1;font-weight:600}
+  form.alta .btn-agregar{
+    grid-column:1/-1;font:inherit;font-weight:600;border:0;border-radius:10px;
+    background:var(--brand);color:var(--brand-ink);cursor:pointer;padding:11px;
+  }
+  form.alta .btn-escanear{
+    grid-column:1/-1;font:inherit;font-weight:600;border-radius:10px;cursor:pointer;padding:10px;
+    background:var(--brand-soft);color:var(--brand);border:1px dashed var(--brand);
+    display:flex;align-items:center;justify-content:center;gap:8px
+  }
+
+  .seccion{margin-top:20px}
+  .seccion h2{
+    font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+    margin:0 0 8px 4px;font-weight:700;
+  }
+  ul{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  li{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;border-top:1px solid var(--line)}
+  li:first-child{border-top:0}
+  label.item{display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer}
+  input[type=checkbox]{
+    appearance:none;-webkit-appearance:none;margin:0;flex:none;
+    width:26px;height:26px;border-radius:8px;border:2px solid var(--line);
+    display:grid;place-content:center;cursor:pointer;background:var(--card);
+    transition:background .15s,border-color .15s;
+  }
+  input[type=checkbox]::after{
+    content:"";width:12px;height:7px;border:3px solid var(--brand-ink);border-top:0;border-right:0;
+    transform:rotate(-45deg) translate(1px,-1px) scale(0);transition:transform .15s;
+  }
+  input[type=checkbox]:checked{background:var(--brand);border-color:var(--brand)}
+  input[type=checkbox]:checked::after{transform:rotate(-45deg) translate(1px,-1px) scale(1)}
+  .nombre{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cant{
+    flex:none;font-size:.8rem;color:var(--brand);background:var(--brand-soft);
+    padding:2px 8px;border-radius:99px;font-weight:600
+  }
+  li.hecho .nombre{color:var(--done);text-decoration:line-through}
+  li.hecho .cant{color:var(--done);background:transparent}
+  .borrar{
+    flex:none;border:0;background:transparent;color:var(--muted);font-size:1.3rem;line-height:1;
+    width:34px;height:34px;border-radius:8px;cursor:pointer
+  }
+  .borrar:hover{color:var(--danger);background:var(--line)}
+
+  .vacio{text-align:center;color:var(--muted);padding:48px 16px}
+  .vacio .emoji{font-size:2.6rem}
+
+  .acciones{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
+  .acciones button{
+    flex:1;min-width:140px;font:inherit;font-size:.9rem;padding:10px;border-radius:10px;cursor:pointer;
+    background:transparent;color:var(--ink);border:1px solid var(--line)
+  }
+  .acciones button.peligro{color:var(--danger)}
+  .aviso{
+    margin-top:12px;font-size:.82rem;background:#fff4d6;color:#6b5200;border:1px solid #f0dc9a;
+    border-radius:10px;padding:8px 10px
+  }
+
+  /* ---------- Ventana de escaneo / revisión ---------- */
+  .velo{
+    position:fixed;inset:0;z-index:20;background:var(--velo);
+    display:flex;align-items:flex-end;justify-content:center;
+  }
+  .velo[hidden]{display:none}
+  @media (min-width:700px){ .velo{align-items:center} }
+  .hoja{
+    background:var(--bg);width:100%;max-width:640px;max-height:92vh;
+    border-radius:18px 18px 0 0;display:flex;flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  @media (min-width:700px){ .hoja{border-radius:18px} }
+  .hoja-cab{padding:16px 16px 8px}
+  .hoja-cab h3{margin:0;font-size:1.15rem}
+  .hoja-cab p{margin:4px 0 0;color:var(--muted);font-size:.85rem}
+  .hoja-cuerpo{overflow:auto;padding:4px 16px 8px;flex:1}
+  .hoja-pie{display:flex;gap:8px;padding:12px 16px 16px;border-top:1px solid var(--line)}
+  .hoja-pie button{
+    flex:1;font:inherit;font-weight:600;padding:12px;border-radius:10px;cursor:pointer;
+    border:1px solid var(--line);background:transparent;color:var(--ink)
+  }
+  .hoja-pie button.principal{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+  .hoja-pie button:disabled{opacity:.5;cursor:default}
+
+  .revision{display:grid;gap:8px}
+  .rev{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;
+    display:grid;grid-template-columns:26px 1fr 72px;gap:8px;align-items:center
+  }
+  .rev select{grid-column:2/-1;font-size:.9rem;padding:8px 10px}
+  .rev input[type=text]{padding:8px 10px}
+  .rev.off{opacity:.45}
+  .rev .ya{grid-column:2/-1;font-size:.75rem;color:var(--muted);margin-top:-2px}
+
+  .cargando{display:flex;flex-direction:column;align-items:center;gap:14px;padding:36px 16px 44px;text-align:center}
+  .cargando img{max-width:180px;max-height:180px;border-radius:10px;border:1px solid var(--line);object-fit:cover}
+  .ruedita{
+    width:34px;height:34px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--brand);
+    animation:gira .8s linear infinite
+  }
+  @keyframes gira{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="top">
+      <h1 id="titulo">🛒 Lista del súper</h1>
+      <div class="derecha">
+        <div class="estado"><span class="punto" id="punto"></span><span id="estadoTxt"></span></div>
+        <div class="idioma" role="group" aria-label="Idioma / Idioma">
+          <button type="button" data-lang="es">ES</button>
+          <button type="button" data-lang="pt">PT</button>
+        </div>
+      </div>
+    </div>
+    <div class="progreso"><div id="barra"></div></div>
+    <div class="resumen" id="resumen"></div>
+
+    <form class="alta" id="alta" autocomplete="off">
+      <select id="categoria"></select>
+      <input id="nombre" required maxlength="60" enterkeyhint="done">
+      <input id="cantidad" maxlength="12">
+      <button type="submit" class="btn-agregar" id="btnAgregar"></button>
+      <button type="button" class="btn-escanear" id="btnEscanear"></button>
+      <input type="file" id="foto" accept="image/*" hidden>
+    </form>
+    <div class="aviso" id="aviso" hidden></div>
+  </header>
+
+  <main id="lista"></main>
+
+  <div class="acciones" id="acciones" hidden>
+    <button id="desmarcar"></button>
+    <button id="limpiar" class="peligro"></button>
+  </div>
+</div>
+
+<!-- Ventana para el escaneo -->
+<div class="velo" id="velo" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="hojaTitulo">
+    <div class="hoja-cab"><h3 id="hojaTitulo"></h3><p id="hojaSub"></p></div>
+    <div class="hoja-cuerpo" id="hojaCuerpo"></div>
+    <div class="hoja-pie" id="hojaPie">
+      <button type="button" id="hojaCancelar"></button>
+      <button type="button" class="principal" id="hojaConfirmar"></button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+/* ============================================================
+   CONFIGURACIÓN — pegá acá los datos de tu proyecto Firebase
+   (Consola Firebase → Configuración del proyecto → Tus apps → Web)
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBlCgIqISdjSiNuM1lZqez3mjE9ZNGZ654",
+  authDomain: "supermercado-ff56a.firebaseapp.com",
+  databaseURL: "https://supermercado-ff56a-default-rtdb.firebaseio.com",
+  projectId: "supermercado-ff56a",
+  storageBucket: "supermercado-ff56a.firebasestorage.app",
+  messagingSenderId: "206180334226",
+  appId: "1:206180334226:web:bb5847e798c3933990c44b"
+};
+/* Nombre de la lista dentro de la base. Usá algo difícil de adivinar. */
+const LISTA_ID = "super-j9igf5vqyr";
+
+/* ---------- Escaneo con IA (Firebase AI Logic + App Check) ----------
+   Clave de sitio de reCAPTCHA registrada en App Check.
+   RECAPTCHA_TIPO: "enterprise" (lo que crea el asistente de Firebase) o "v3". */
+const RECAPTCHA_SITE_KEY = "";
+const RECAPTCHA_TIPO = "enterprise";
+/* Modelo de Gemini que lee la foto */
+const MODELO_IA = "gemini-3.8-flash";
+
+const FB_CDN = "https://www.gstatic.com/firebasejs/13.1.0";
+
+/* ---------- Idiomas ----------
+   Las categorías se guardan en la base con su clave en español,
+   y se muestran traducidas según el idioma elegido.            */
+const CATEGORIAS = ["Almacén","Verdulería","Lácteos","Carnicería","Panadería","Congelados","Bebidas","Limpieza","Perfumería","Otros"];
+
+const TEXTOS = {
+  es: {
+    nombreIdioma: "español rioplatense",
+    titulo: "🛒 Lista del súper",
+    tituloPagina: "Lista del súper",
+    categoria: "Categoría",
+    producto: "Producto (ej: Leche)",
+    cantidad: "Cant.",
+    agregar: "Agregar",
+    conectando: "Conectando…",
+    sincronizado: "Sincronizado",
+    sinConexion: "Sin conexión",
+    error: "Error",
+    modoLocal: "Modo local",
+    resumen: (h, t) => `${h} de ${t} en el changuito`,
+    vacio: "La lista está vacía.<br>Agregá el primer producto arriba.",
+    enCarrito: "✓ En el changuito",
+    desmarcar: "Desmarcar todo",
+    limpiar: "Quitar lo del changuito",
+    confirmBorrar: n => `¿Borrar "${n}"?`,
+    confirmLimpiar: n => `¿Quitar ${n} producto(s) que ya están en el changuito?`,
+    borrar: n => `Borrar ${n}`,
+    avisoLocal: "Firebase todavía no está configurado: la lista se guarda solo en este navegador. Completá <b>firebaseConfig</b> en el archivo para sincronizar con el celular.",
+    avisoFallo: m => `No se pudo conectar con Firebase (${m}). Usando modo local.`,
+    avisoLectura: m => `No se pudo leer la base: ${m}`,
+    escanear: "📷 Escanear lista escrita",
+    escSinFirebase: "Para escanear hace falta configurar Firebase y AI Logic en el archivo.",
+    leyendo: "Leyendo tu lista…",
+    leyendoSub: "Esto tarda unos segundos.",
+    revisar: "Revisá lo que leí",
+    revisarSub: "Corregí o destildá lo que no va. Nada se agrega hasta que confirmes.",
+    nadaTitulo: "No encontré productos",
+    nadaSub: "Probá de nuevo con buena luz, la hoja derecha y sin sombras.",
+    errorTitulo: "No se pudo leer la foto",
+    errorAppCheck: "Revisá la clave de reCAPTCHA y que este sitio esté registrado en App Check.",
+    errorCuota: "Se alcanzó el límite gratuito de la IA por ahora. Probá más tarde.",
+    cancelar: "Cancelar",
+    cerrar: "Cerrar",
+    reintentar: "Otra foto",
+    agregarN: n => n === 1 ? "Agregar 1 producto" : `Agregar ${n} productos`,
+    yaEsta: "Ya está en la lista: se va a volver a marcar como pendiente.",
+    promptIA: (cats) => `Esta foto es una lista de compras de supermercado escrita a mano.
+Extraé cada producto que aparece, en el orden en que está escrito.
+- "nombre": el producto con la ortografía corregida y la primera letra en mayúscula, en el idioma en que está escrito. No agregues marcas ni productos que no estén.
+- "cantidad": solo si está escrita (por ejemplo "2", "1 kg", "3 paq."). Si no hay, omitila.
+- "categoria": la que mejor corresponda de esta lista: ${cats}. Si dudás, "Otros".
+Ignorá tachaduras, títulos, fechas y garabatos que no sean productos.`
+  },
+  pt: {
+    nombreIdioma: "português do Brasil",
+    titulo: "🛒 Lista do mercado",
+    tituloPagina: "Lista do mercado",
+    categoria: "Categoria",
+    producto: "Produto (ex: Leite)",
+    cantidad: "Qtd.",
+    agregar: "Adicionar",
+    conectando: "Conectando…",
+    sincronizado: "Sincronizado",
+    sinConexion: "Sem conexão",
+    error: "Erro",
+    modoLocal: "Modo local",
+    resumen: (h, t) => `${h} de ${t} no carrinho`,
+    vacio: "A lista está vazia.<br>Adicione o primeiro produto acima.",
+    enCarrito: "✓ No carrinho",
+    desmarcar: "Desmarcar tudo",
+    limpiar: "Remover o que está no carrinho",
+    confirmBorrar: n => `Apagar "${n}"?`,
+    confirmLimpiar: n => `Remover ${n} produto(s) que já estão no carrinho?`,
+    borrar: n => `Apagar ${n}`,
+    avisoLocal: "O Firebase ainda não está configurado: a lista fica salva só neste navegador. Preencha <b>firebaseConfig</b> no arquivo para sincronizar com o celular.",
+    avisoFallo: m => `Não foi possível conectar ao Firebase (${m}). Usando modo local.`,
+    avisoLectura: m => `Não foi possível ler o banco: ${m}`,
+    escanear: "📷 Escanear lista escrita",
+    escSinFirebase: "Para escanear é preciso configurar o Firebase e o AI Logic no arquivo.",
+    leyendo: "Lendo sua lista…",
+    leyendoSub: "Isso leva alguns segundos.",
+    revisar: "Confira o que eu li",
+    revisarSub: "Corrija ou desmarque o que não serve. Nada é adicionado até você confirmar.",
+    nadaTitulo: "Não encontrei produtos",
+    nadaSub: "Tente de novo com boa luz, a folha reta e sem sombras.",
+    errorTitulo: "Não foi possível ler a foto",
+    errorAppCheck: "Confira a chave do reCAPTCHA e se este site está registrado no App Check.",
+    errorCuota: "O limite gratuito da IA foi atingido por enquanto. Tente mais tarde.",
+    cancelar: "Cancelar",
+    cerrar: "Fechar",
+    reintentar: "Outra foto",
+    agregarN: n => n === 1 ? "Adicionar 1 produto" : `Adicionar ${n} produtos`,
+    yaEsta: "Já está na lista: vai voltar a ficar pendente.",
+    promptIA: (cats) => `Esta foto é uma lista de compras de supermercado escrita à mão.
+Extraia cada produto que aparece, na ordem em que está escrito.
+- "nombre": o produto com a ortografia corrigida e a primeira letra maiúscula, no idioma em que está escrito. Não adicione marcas nem produtos que não estejam lá.
+- "cantidad": só se estiver escrita (por exemplo "2", "1 kg", "3 pct."). Se não houver, omita.
+- "categoria": a que melhor corresponder desta lista (use exatamente estes valores): ${cats}. Na dúvida, "Otros".
+Ignore rabiscos, títulos, datas e riscos que não sejam produtos.`,
+    cats: {
+      "Almacén":"Mercearia","Verdulería":"Hortifrúti","Lácteos":"Laticínios","Carnicería":"Açougue",
+      "Panadería":"Padaria","Congelados":"Congelados","Bebidas":"Bebidas","Limpieza":"Limpeza",
+      "Perfumería":"Higiene e perfumaria","Otros":"Outros"
+    }
+  }
+};
+TEXTOS.es.cats = {};
+
+const $ = id => document.getElementById(id);
+const leerLS = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
+const guardarLS = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+let idioma = leerLS("idioma", "es");
+if (!TEXTOS[idioma]) idioma = "es";
+const T = () => TEXTOS[idioma];
+const nombreCat = c => T().cats[c] || c;
+
+/* estado y aviso guardan una clave, para poder re-traducirlos al cambiar idioma */
+let estadoActual = { clase: "", clave: "conectando" };
+let avisoActual = null; // { clave, arg }
+
+function setEstado(clase, clave){ estadoActual = { clase, clave }; pintarEstado(); }
+function pintarEstado(){ $("punto").className = "punto " + estadoActual.clase; $("estadoTxt").textContent = T()[estadoActual.clave]; }
+function mostrarAviso(clave, arg){ avisoActual = { clave, arg }; pintarAviso(); }
+function pintarAviso(){
+  const a = $("aviso");
+  if (!avisoActual){ a.hidden = true; return; }
+  const v = T()[avisoActual.clave];
+  a.innerHTML = typeof v === "function" ? v(esc(avisoActual.arg)) : v;
+  a.hidden = false;
+}
+
+function aplicarIdioma(){
+  const t = T();
+  document.documentElement.lang = idioma === "pt" ? "pt-BR" : "es";
+  document.title = t.tituloPagina;
+  $("titulo").textContent = t.titulo;
+  $("nombre").placeholder = t.producto;
+  $("cantidad").placeholder = t.cantidad;
+  $("btnAgregar").textContent = t.agregar;
+  $("btnEscanear").textContent = t.escanear;
+  $("desmarcar").textContent = t.desmarcar;
+  $("limpiar").textContent = t.limpiar;
+  sel.setAttribute("aria-label", t.categoria);
+  const actual = sel.value;
+  sel.innerHTML = "";
+  CATEGORIAS.forEach(c => sel.add(new Option(nombreCat(c), c)));
+  sel.value = actual || leerLS("ultima_categoria", "Almacén");
+  document.querySelectorAll(".idioma button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === idioma));
+  pintarEstado(); pintarAviso(); render();
+  if (!$("velo").hidden) pintarHoja();
+}
+
+document.querySelectorAll(".idioma button").forEach(b => b.addEventListener("click", () => {
+  idioma = b.dataset.lang; guardarLS("idioma", idioma); aplicarIdioma();
+}));
+
+/* ---------- Capa de datos: Firebase o, si no está configurado, local ---------- */
+const configurado = !!(firebaseConfig.apiKey && firebaseConfig.databaseURL);
+let fbApp = null;
+
+async function crearStoreFirebase(){
+  const { initializeApp } = await import(`${FB_CDN}/firebase-app.js`);
+  const db = await import(`${FB_CDN}/firebase-database.js`);
+  fbApp = initializeApp(firebaseConfig);
+  const base = db.getDatabase(fbApp);
+  const itemsRef = db.ref(base, `listas/${LISTA_ID}/items`);
+
+  db.onValue(db.ref(base, ".info/connected"), s => {
+    s.val() ? setEstado("on", "sincronizado") : setEstado("off", "sinConexion");
+  });
+
+  return {
+    escuchar(cb){ db.onValue(itemsRef, s => cb(s.val() || {}), e => { setEstado("off","error"); mostrarAviso("avisoLectura", e.message); }); },
+    agregar(item){ return db.push(itemsRef, item); },
+    cambiar(id, datos){ return db.update(db.ref(base, `listas/${LISTA_ID}/items/${id}`), datos); },
+    borrar(id){ return db.remove(db.ref(base, `listas/${LISTA_ID}/items/${id}`)); },
+    lote(cambios){ return db.update(itemsRef, cambios); }
+  };
+}
+
+function crearStoreLocal(){
+  const KEY = "lista_super_" + LISTA_ID;
+  let cbs = [];
+  const leer = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
+  const guardar = d => { guardarLS(KEY, JSON.stringify(d)); cbs.forEach(cb => cb(d)); };
+  window.addEventListener("storage", e => { if (e.key === KEY) cbs.forEach(cb => cb(leer())); });
+  setEstado("", "modoLocal");
+  if (!avisoActual) mostrarAviso("avisoLocal");
+  return {
+    escuchar(cb){ cbs.push(cb); cb(leer()); },
+    agregar(item){ const d = leer(); d["l" + Date.now().toString(36) + Math.random().toString(36).slice(2,6)] = item; guardar(d); },
+    cambiar(id, datos){ const d = leer(); if (d[id]) Object.assign(d[id], datos); guardar(d); },
+    borrar(id){ const d = leer(); delete d[id]; guardar(d); },
+    lote(cambios){
+      const d = leer();
+      for (const [k,v] of Object.entries(cambios)){
+        const [id, campo] = k.split("/");
+        if (campo){ if (d[id]) d[id][campo] = v; }
+        else if (v === null) delete d[id]; else d[id] = v;
+      }
+      guardar(d);
+    }
+  };
+}
+
+/* ---------- Interfaz ---------- */
+const sel = $("categoria");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = s => String(s ?? "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+let items = {};
+let store;
+
+function render(){
+  const t = T();
+  const lista = Object.entries(items).map(([id, it]) => ({ id, ...it }));
+  const total = lista.length;
+  const hechos = lista.filter(i => i.enCarrito).length;
+
+  $("barra").style.width = total ? (hechos / total * 100) + "%" : "0";
+  $("resumen").textContent = total ? t.resumen(hechos, total) : "";
+  $("acciones").hidden = total === 0;
+
+  if (!total){
+    $("lista").innerHTML = `<div class="vacio"><div class="emoji">🧺</div><p>${t.vacio}</p></div>`;
+    return;
+  }
+
+  const pendientes = lista.filter(i => !i.enCarrito);
+  const enCarrito = lista.filter(i => i.enCarrito).sort((a,b) => (b.marcado||0) - (a.marcado||0));
+  const loc = idioma === "pt" ? "pt" : "es";
+
+  let html = "";
+  for (const cat of CATEGORIAS){
+    const grupo = pendientes.filter(i => (CATEGORIAS.includes(i.categoria) ? i.categoria : "Otros") === cat)
+                            .sort((a,b) => a.nombre.localeCompare(b.nombre, loc));
+    if (grupo.length) html += seccion(nombreCat(cat), grupo);
+  }
+  if (enCarrito.length) html += seccion(t.enCarrito, enCarrito);
+  $("lista").innerHTML = html;
+}
+
+function seccion(titulo, grupo){
+  return `<section class="seccion"><h2>${esc(titulo)}</h2><ul>${grupo.map(fila).join("")}</ul></section>`;
+}
+function fila(i){
+  return `<li class="${i.enCarrito ? "hecho" : ""}">
+    <label class="item">
+      <input type="checkbox" data-id="${esc(i.id)}" ${i.enCarrito ? "checked" : ""} aria-label="${esc(i.nombre)}">
+      <span class="nombre">${esc(i.nombre)}</span>
+    </label>
+    ${i.cantidad ? `<span class="cant">${esc(i.cantidad)}</span>` : ""}
+    <button class="borrar" data-borrar="${esc(i.id)}" aria-label="${esc(T().borrar(i.nombre))}">×</button>
+  </li>`;
+}
+
+/* Agrega un producto; si ya existe (mismo nombre), lo vuelve a pendiente en vez de duplicarlo */
+function agregarProducto({ nombre, cantidad = "", categoria = "Otros" }){
+  nombre = String(nombre).trim().slice(0, 60);
+  if (!nombre) return;
+  cantidad = String(cantidad || "").trim().slice(0, 12);
+  if (!CATEGORIAS.includes(categoria)) categoria = "Otros";
+  const existente = Object.entries(items).find(([, it]) => norm(it.nombre) === norm(nombre));
+  if (existente){
+    store.cambiar(existente[0], { enCarrito: false, marcado: null, cantidad: cantidad || existente[1].cantidad || "", categoria });
+  } else {
+    store.agregar({ nombre, cantidad, categoria, enCarrito: false, creado: Date.now() });
+  }
+}
+
+$("alta").addEventListener("submit", e => {
+  e.preventDefault();
+  if (!store) return;
+  const nombre = $("nombre").value.trim();
+  if (!nombre) return;
+  guardarLS("ultima_categoria", sel.value);
+  agregarProducto({ nombre, cantidad: $("cantidad").value, categoria: sel.value });
+  $("nombre").value = ""; $("cantidad").value = "";
+  $("nombre").focus();
+});
+
+$("lista").addEventListener("change", e => {
+  const id = e.target.dataset.id;
+  if (id) store.cambiar(id, { enCarrito: e.target.checked, marcado: e.target.checked ? Date.now() : null });
+});
+$("lista").addEventListener("click", e => {
+  const id = e.target.dataset.borrar;
+  if (id && confirm(T().confirmBorrar(items[id]?.nombre ?? ""))) store.borrar(id);
+});
+
+$("desmarcar").addEventListener("click", () => {
+  const cambios = {};
+  for (const [id, it] of Object.entries(items)) if (it.enCarrito){ cambios[`${id}/enCarrito`] = false; cambios[`${id}/marcado`] = null; }
+  if (Object.keys(cambios).length) store.lote(cambios);
+});
+$("limpiar").addEventListener("click", () => {
+  const ids = Object.entries(items).filter(([, it]) => it.enCarrito).map(([id]) => id);
+  if (!ids.length) return;
+  if (!confirm(T().confirmLimpiar(ids.length))) return;
+  store.lote(Object.fromEntries(ids.map(id => [id, null])));
+});
+
+/* ============================================================
+   ESCANEO DE LISTA ESCRITA A MANO
+   ============================================================ */
+let modeloIA = null;
+let escaneo = { fase: "cerrado", foto: null, filas: [], error: "" };
+// fase: "leyendo" | "revision" | "nada" | "error" | "cerrado"
+
+async function obtenerModelo(){
+  if (modeloIA) return modeloIA;
+  if (!fbApp) throw new Error(T().escSinFirebase);
+
+  // En localhost, App Check usa un token de depuración (se registra en la consola de Firebase)
+  if (["localhost","127.0.0.1"].includes(location.hostname)) self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+
+  const ac = await import(`${FB_CDN}/firebase-app-check.js`);
+  const ai = await import(`${FB_CDN}/firebase-ai.js`);
+
+  if (RECAPTCHA_SITE_KEY){
+    const Proveedor = RECAPTCHA_TIPO === "v3" ? ac.ReCaptchaV3Provider : ac.ReCaptchaEnterpriseProvider;
+    ac.initializeAppCheck(fbApp, { provider: new Proveedor(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+  }
+
+  const S = ai.Schema;
+  const esquema = S.object({
+    properties: {
+      productos: S.array({
+        items: S.object({
+          properties: {
+            nombre: S.string(),
+            cantidad: S.string(),
+            categoria: S.enumString({ enum: CATEGORIAS })
+          },
+          optionalProperties: ["cantidad"]
+        })
+      })
+    }
+  });
+
+  modeloIA = ai.getGenerativeModel(ai.getAI(fbApp, { backend: new ai.GoogleAIBackend() }), {
+    model: MODELO_IA,
+    generationConfig: { responseMimeType: "application/json", responseSchema: esquema }
+  });
+  return modeloIA;
+}
+
+/* Achica la foto (máx. 1600 px) y la pasa a JPEG en base64 */
+function prepararImagen(archivo){
+  return new Promise((ok, mal) => {
+    const url = URL.createObjectURL(archivo);
+    const img = new Image();
+    img.onload = () => {
+      const max = 1600;
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth * k);
+      c.height = Math.round(img.naturalHeight * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      const dataUrl = c.toDataURL("image/jpeg", 0.85);
+      ok({ dataUrl, base64: dataUrl.split(",")[1] });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); mal(new Error("imagen")); };
+    img.src = url;
+  });
+}
+
+$("btnEscanear").addEventListener("click", () => {
+  if (!configurado || !fbApp){ alert(T().escSinFirebase); return; }
+  $("foto").value = "";
+  $("foto").click();
+});
+
+$("foto").addEventListener("change", async e => {
+  const archivo = e.target.files?.[0];
+  if (!archivo) return;
+  let foto;
+  try { foto = await prepararImagen(archivo); }
+  catch { escaneo = { fase: "error", foto: null, filas: [], error: "" }; abrirHoja(); return; }
+
+  escaneo = { fase: "leyendo", foto: foto.dataUrl, filas: [], error: "" };
+  abrirHoja();
+
+  try {
+    const modelo = await obtenerModelo();
+    const t = T();
+    const prompt = t.promptIA(CATEGORIAS.map(c => `"${c}"`).join(", "));
+    const parteImagen = { type: "inlineData", inlineData: { data: foto.base64, mimeType: "image/jpeg" } };
+    const res = await modelo.generateContent([prompt, parteImagen]);
+    if (escaneo.fase !== "leyendo") return; // se canceló mientras leía
+
+    let datos;
+    try { datos = JSON.parse(res.response.text()); } catch { datos = { productos: [] }; }
+    const vistos = new Set();
+    const filas = (datos.productos || [])
+      .map(p => ({ nombre: String(p.nombre || "").trim(), cantidad: String(p.cantidad || "").trim(),
+                   categoria: CATEGORIAS.includes(p.categoria) ? p.categoria : "Otros", incluir: true }))
+      .filter(p => p.nombre && !vistos.has(norm(p.nombre)) && vistos.add(norm(p.nombre)));
+
+    escaneo.filas = filas;
+    escaneo.fase = filas.length ? "revision" : "nada";
+  } catch (err) {
+    if (escaneo.fase !== "leyendo") return;
+    console.error(err);
+    const m = String(err?.message || err);
+    escaneo.fase = "error";
+    escaneo.error = /app.?check|recaptcha|attestation|403|permission/i.test(m) ? T().errorAppCheck
+                  : /quota|429|resource.?exhausted|rate/i.test(m) ? T().errorCuota
+                  : m;
+  }
+  pintarHoja();
+});
+
+function abrirHoja(){ $("velo").hidden = false; document.body.classList.add("modal-abierto"); pintarHoja(); }
+function cerrarHoja(){ escaneo.fase = "cerrado"; $("velo").hidden = true; document.body.classList.remove("modal-abierto"); }
+
+function pintarHoja(){
+  const t = T();
+  const cuerpo = $("hojaCuerpo"), cancelar = $("hojaCancelar"), confirmar = $("hojaConfirmar");
+  confirmar.hidden = false; confirmar.disabled = false;
+
+  if (escaneo.fase === "leyendo"){
+    $("hojaTitulo").textContent = t.leyendo;
+    $("hojaSub").textContent = t.leyendoSub;
+    cuerpo.innerHTML = `<div class="cargando">${escaneo.foto ? `<img src="${escaneo.foto}" alt="">` : ""}<div class="ruedita"></div></div>`;
+    cancelar.textContent = t.cancelar;
+    confirmar.hidden = true;
+    return;
+  }
+  if (escaneo.fase === "nada" || escaneo.fase === "error"){
+    const esError = escaneo.fase === "error";
+    $("hojaTitulo").textContent = esError ? t.errorTitulo : t.nadaTitulo;
+    $("hojaSub").textContent = esError ? (escaneo.error || t.nadaSub) : t.nadaSub;
+    cuerpo.innerHTML = escaneo.foto ? `<div class="cargando"><img src="${escaneo.foto}" alt=""></div>` : "";
+    cancelar.textContent = t.cerrar;
+    confirmar.textContent = t.reintentar;
+    return;
+  }
+  // revisión
+  $("hojaTitulo").textContent = t.revisar;
+  $("hojaSub").textContent = t.revisarSub;
+  const nombresActuales = new Set(Object.values(items).map(i => norm(i.nombre)));
+  cuerpo.innerHTML = `<div class="revision">${escaneo.filas.map((f, i) => `
+    <div class="rev ${f.incluir ? "" : "off"}" data-i="${i}">
+      <input type="checkbox" data-campo="incluir" ${f.incluir ? "checked" : ""} aria-label="${esc(f.nombre)}">
+      <input type="text" data-campo="nombre" value="${esc(f.nombre)}" maxlength="60">
+      <input type="text" data-campo="cantidad" value="${esc(f.cantidad)}" maxlength="12" placeholder="${esc(t.cantidad)}">
+      <select data-campo="categoria">${CATEGORIAS.map(c => `<option value="${esc(c)}" ${c === f.categoria ? "selected" : ""}>${esc(nombreCat(c))}</option>`).join("")}</select>
+      ${nombresActuales.has(norm(f.nombre)) ? `<div class="ya">${esc(t.yaEsta)}</div>` : ""}
+    </div>`).join("")}</div>`;
+  cancelar.textContent = t.cancelar;
+  actualizarBotonConfirmar();
+}
+
+function actualizarBotonConfirmar(){
+  const n = escaneo.filas.filter(f => f.incluir && f.nombre.trim()).length;
+  $("hojaConfirmar").textContent = T().agregarN(n);
+  $("hojaConfirmar").disabled = n === 0;
+}
+
+$("hojaCuerpo").addEventListener("input", e => {
+  const caja = e.target.closest(".rev"); if (!caja) return;
+  const f = escaneo.filas[+caja.dataset.i]; const campo = e.target.dataset.campo;
+  if (campo === "incluir"){ f.incluir = e.target.checked; caja.classList.toggle("off", !f.incluir); }
+  else f[campo] = e.target.value;
+  actualizarBotonConfirmar();
+});
+
+$("hojaCancelar").addEventListener("click", cerrarHoja);
+$("velo").addEventListener("click", e => { if (e.target === $("velo") && escaneo.fase !== "leyendo") cerrarHoja(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("velo").hidden) cerrarHoja(); });
+
+$("hojaConfirmar").addEventListener("click", () => {
+  if (escaneo.fase === "nada" || escaneo.fase === "error"){
+    cerrarHoja(); $("foto").value = ""; $("foto").click(); return;
+  }
+  if (escaneo.fase !== "revision") return;
+  escaneo.filas.filter(f => f.incluir && f.nombre.trim()).forEach(agregarProducto);
+  cerrarHoja();
+});
+
+/* ---------- Instalable como app (PWA) ---------- */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+
+/* ---------- Arranque ---------- */
+aplicarIdioma();
+(async () => {
+  try {
+    store = configurado ? await crearStoreFirebase() : crearStoreLocal();
+  } catch (err) {
+    mostrarAviso("avisoFallo", err.message);
+    store = crearStoreLocal();
+  }
+  store.escuchar(d => { items = d; render(); });
+})();
+</script>
+</body>
+</html>

@@ -3,11 +3,16 @@
      así cada cambio que subas a GitHub llega solo; si no hay señal, usa la copia guardada.
    - Las librerías de Firebase se guardan para que la app abra más rápido.
    - Los datos de la lista NO pasan por acá: van directo a Firebase.            */
-const VERSION = "super-v2";
+const VERSION = "super-v3";
 const PROPIOS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(PROPIOS)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(VERSION)
+      .then(c => c.addAll(PROPIOS.map(u => new Request(u, { cache: "reload" }))))
+      .catch(() => {})                       // si falta algún archivo, igual se instala
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", e => {
@@ -26,7 +31,7 @@ self.addEventListener("fetch", e => {
   // Archivos de la app: primero internet, si falla la copia guardada
   if (url.origin === location.origin){
     e.respondWith(
-      fetch(req)
+      fetch(req, { cache: "no-cache" })   // siempre pregunta a GitHub si hay versión nueva
         .then(r => { const copia = r.clone(); caches.open(VERSION).then(c => c.put(req, copia)); return r; })
         .catch(() => caches.match(req).then(r => r || caches.match("./index.html")))
     );
