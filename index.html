@@ -105,6 +105,16 @@
   li{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;border-top:1px solid var(--line)}
   li:first-child{border-top:0}
   label.item{display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer}
+  /* Lista principal: doble toque para tildar (evita marcar sin querer) */
+  #lista li{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  #lista li.primer-toque{background:var(--brand-soft);transition:background .1s}
+  #lista li.primer-toque input[type=checkbox]{border-color:var(--brand)}
+  .pista{
+    position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    z-index:15;background:var(--ink);color:var(--bg);font-size:.85rem;padding:8px 14px;border-radius:99px;
+    pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap
+  }
+  .pista.ver{opacity:.92}
   input[type=checkbox]{
     appearance:none;-webkit-appearance:none;margin:0;flex:none;
     width:26px;height:26px;border-radius:8px;border:2px solid var(--line);
@@ -443,6 +453,7 @@ const TEXTOS = {
     imprimir: "🖨️ Imprimir",
     compartir: "📤 Compartir",
     nadaEnCarrito: "Todavía no tildaste nada en el changuito.",
+    pistaDoble: "Tocá dos veces para tildar",
     confirmTerminar: (c, p) => `¿Terminaste la compra?\n\nSe quitan los ${c} producto(s) que compraste.` +
       (p ? `\nLos ${p} que quedaron sin comprar siguen en la lista.` : `\nLa lista queda vacía para la próxima.`),
     compraLista: "🛒 ¡Compra terminada!",
@@ -545,6 +556,7 @@ Ignorá tachaduras, títulos, fechas y garabatos que no sean productos.`
     imprimir: "🖨️ Imprimir",
     compartir: "📤 Compartilhar",
     nadaEnCarrito: "Você ainda não marcou nada no carrinho.",
+    pistaDoble: "Toque duas vezes para marcar",
     confirmTerminar: (c, p) => `Terminou a compra?\n\nOs ${c} produto(s) comprados serão removidos.` +
       (p ? `\nOs ${p} que ficaram sem comprar continuam na lista.` : `\nA lista fica vazia para a próxima.`),
     compraLista: "🛒 Compra concluída!",
@@ -860,13 +872,48 @@ $("alta").addEventListener("submit", e => {
   else $("nombre").focus();                          // PC: listo para el siguiente
 });
 
-$("lista").addEventListener("change", e => {
-  const id = e.target.dataset.id;
-  if (id) store.cambiar(id, { enCarrito: e.target.checked, marcado: e.target.checked ? Date.now() : null });
-});
+/* Tildar con DOBLE toque: el primer toque solo resalta el producto;
+   si se toca otra vez dentro de 0,6 s, se marca o desmarca. */
+let toque = { id: null, t: 0, timer: null };
+function limpiarToque(){
+  clearTimeout(toque.timer);
+  document.querySelectorAll("#lista li.primer-toque").forEach(li => li.classList.remove("primer-toque"));
+  toque = { id: null, t: 0, timer: null };
+}
+let pistaTimer = null, pistasMostradas = 0;
+function mostrarPista(){
+  if (pistasMostradas >= 3) return;            // solo las primeras veces
+  pistasMostradas++;
+  let el = document.querySelector(".pista");
+  if (!el){ el = document.createElement("div"); el.className = "pista"; document.body.appendChild(el); }
+  el.textContent = T().pistaDoble;
+  el.classList.add("ver");
+  clearTimeout(pistaTimer); pistaTimer = setTimeout(() => el.classList.remove("ver"), 1400);
+}
+
 $("lista").addEventListener("click", e => {
-  const id = e.target.dataset.borrar;
-  if (id && confirm(T().confirmBorrar(items[id]?.nombre ?? ""))) store.borrar(id);
+  const borrarId = e.target.closest("[data-borrar]")?.dataset.borrar;
+  if (borrarId){
+    if (confirm(T().confirmBorrar(items[borrarId]?.nombre ?? ""))) store.borrar(borrarId);
+    return;
+  }
+  const label = e.target.closest("label.item");
+  if (!label) return;
+  e.preventDefault();                           // un toque solo no cambia la casilla
+  const id = label.querySelector("input[data-id]")?.dataset.id;
+  if (!id || !items[id]) return;
+  const ahora = Date.now();
+  if (toque.id === id && ahora - toque.t < 600){
+    limpiarToque();
+    const marcar = !items[id].enCarrito;
+    store.cambiar(id, { enCarrito: marcar, marcado: marcar ? ahora : null });
+    if (navigator.vibrate) navigator.vibrate(15);
+    return;
+  }
+  limpiarToque();
+  toque = { id, t: ahora, timer: setTimeout(limpiarToque, 600) };
+  label.closest("li")?.classList.add("primer-toque");
+  mostrarPista();
 });
 
 $("desmarcar").addEventListener("click", () => {
