@@ -3,7 +3,7 @@
      así cada cambio que subas a GitHub llega solo; si no hay señal, usa la copia guardada.
    - Las librerías de Firebase se guardan para que la app abra más rápido.
    - Los datos de la lista NO pasan por acá: van directo a Firebase.            */
-const VERSION = "super-v1";
+const VERSION = "super-v2";
 const PROPIOS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
