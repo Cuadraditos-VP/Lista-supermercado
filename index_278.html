@@ -1,0 +1,1671 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f7a4d">
+<meta name="color-scheme" content="only light">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Súper">
+<title>Lista del súper</title>
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root{
+    --bg:#f4f1ea; --card:#ffffff; --ink:#1d2320; --muted:#6b736f; --line:#e3ded3;
+    --brand:#1f7a4d; --brand-ink:#ffffff; --brand-soft:#e3f1e9;
+    --danger:#c0392b; --done:#9aa39e; --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.05);
+    --velo:rgba(20,24,22,.45);
+  }
+  *{box-sizing:border-box}
+  :root{color-scheme:only light}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  body.modal-abierto{overflow:hidden}
+  .wrap{max-width:640px;margin:0 auto;padding:0 16px calc(110px + env(safe-area-inset-bottom))}
+
+  header{
+    position:sticky;top:0;z-index:5;background:var(--bg);
+    padding:calc(14px + env(safe-area-inset-top)) 0 12px;
+  }
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  h1{font-size:1.45rem;margin:0;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .derecha{display:flex;align-items:center;gap:10px;flex:none}
+  .estado{font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .punto{width:8px;height:8px;border-radius:50%;background:var(--done)}
+  .punto.on{background:var(--brand)}
+  .punto.off{background:var(--danger)}
+  @media (max-width:430px){ #estadoTxt{display:none} h1{font-size:1.3rem} }
+
+  .idioma{display:flex;gap:6px}
+  .idioma button{
+    border:0;background:transparent;padding:3px;border-radius:8px;cursor:pointer;line-height:0;
+    opacity:.4;filter:grayscale(.6);transition:opacity .15s,filter .15s,box-shadow .15s
+  }
+  .idioma button svg{width:30px;height:20px;border-radius:4px;display:block;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+  .idioma button[aria-pressed="true"]{opacity:1;filter:none;box-shadow:0 0 0 2px var(--brand)}
+
+  .progreso{margin-top:10px;height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+  .progreso > div{height:100%;width:0;background:var(--brand);transition:width .3s}
+  .resumen{margin-top:6px;font-size:.82rem;color:var(--muted);min-height:1.1em}
+
+  form.alta[hidden]{display:none}
+  form.alta:not([hidden]){animation:aparece .22s ease-out}
+  @keyframes aparece{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+
+  /* Botón flotante "+" que muestra u oculta el recuadro de agregar */
+  .fab{
+    position:fixed;z-index:10;right:max(20px, calc(50% - 300px));
+    bottom:calc(22px + env(safe-area-inset-bottom));
+    width:60px;height:60px;border-radius:50%;border:0;cursor:pointer;
+    background:var(--brand);color:var(--brand-ink);
+    box-shadow:0 6px 18px rgba(31,122,77,.35),0 2px 6px rgba(0,0,0,.15);
+    display:grid;place-items:center;-webkit-tap-highlight-color:transparent
+  }
+  .fab svg{width:28px;height:28px;transition:transform .25s ease}
+  .fab[aria-expanded="true"] svg{transform:rotate(45deg)}
+  .fab:active{transform:scale(.94)}
+  body.modal-abierto .fab{display:none}
+
+  form.alta{
+    margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:10px;box-shadow:var(--shadow);display:grid;gap:8px;
+    grid-template-columns:1fr 70px;
+  }
+  form.alta input, form.alta select, .revision input, .revision select{
+    font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;min-width:0;width:100%;
+  }
+  form.alta select option, .revision select option{background:var(--card);color:var(--ink)}
+  form.alta input:focus, form.alta select:focus, .revision input:focus, .revision select:focus{outline:2px solid var(--brand);outline-offset:-1px;border-color:transparent}
+  form.alta select{grid-column:1/-1;font-weight:600}
+  form.alta .btn-agregar{
+    grid-column:1/-1;font:inherit;font-weight:600;border:0;border-radius:10px;
+    background:var(--brand);color:var(--brand-ink);cursor:pointer;padding:11px;
+  }
+  form.alta .extras{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  form.alta .btn-extra{
+    font:inherit;font-weight:600;border-radius:10px;cursor:pointer;padding:10px 6px;white-space:nowrap;
+    background:var(--brand-soft);color:var(--brand);border:1px dashed var(--brand);
+    display:flex;align-items:center;justify-content:center;gap:8px
+  }
+
+  .seccion{margin-top:20px}
+  .seccion h2{
+    font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+    margin:0 0 8px 4px;font-weight:700;
+  }
+  ul{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  li{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;border-top:1px solid var(--line)}
+  li:first-child{border-top:0}
+  label.item{display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer}
+  input[type=checkbox]{
+    appearance:none;-webkit-appearance:none;margin:0;flex:none;
+    width:26px;height:26px;border-radius:8px;border:2px solid var(--line);
+    display:grid;place-content:center;cursor:pointer;background:var(--card);
+    transition:background .15s,border-color .15s;
+  }
+  input[type=checkbox]::after{
+    content:"";width:12px;height:7px;border:3px solid var(--brand-ink);border-top:0;border-right:0;
+    transform:rotate(-45deg) translate(1px,-1px) scale(0);transition:transform .15s;
+  }
+  input[type=checkbox]:checked{background:var(--brand);border-color:var(--brand)}
+  input[type=checkbox]:checked::after{transform:rotate(-45deg) translate(1px,-1px) scale(1)}
+  .nombre{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cant{
+    flex:none;font-size:.8rem;color:var(--brand);background:var(--brand-soft);
+    padding:2px 8px;border-radius:99px;font-weight:600
+  }
+  li.nuevo{animation:brilla 1.8s ease}
+  @keyframes brilla{0%,45%{background:var(--brand-soft)}100%{background:var(--card)}}
+  li.hecho .nombre{color:var(--done);text-decoration:line-through}
+  li.hecho .cant{color:var(--done);background:transparent}
+  .borrar{
+    flex:none;border:0;background:transparent;color:var(--muted);font-size:1.3rem;line-height:1;
+    width:34px;height:34px;border-radius:8px;cursor:pointer
+  }
+  .borrar:hover{color:var(--danger);background:var(--line)}
+
+  .vacio{text-align:center;color:var(--muted);padding:48px 16px}
+  .vacio .emoji{font-size:2.6rem}
+
+  .acciones{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
+  .acciones button{
+    flex:1;min-width:140px;font:inherit;font-size:.9rem;padding:10px;border-radius:10px;cursor:pointer;
+    background:transparent;color:var(--ink);border:1px solid var(--line)
+  }
+  .acciones button.principal{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+  .acciones button:disabled{opacity:.45;cursor:default}
+  /* Los botones de abajo son de la vista de compras: se ocultan mientras editás con el + */
+  body.editando-lista .acciones{display:none}
+
+  /* ---------- Hoja para imprimir ---------- */
+  #impresion{display:none}
+  @media print{
+    @page{margin:14mm}
+    body{background:#fff !important;padding:0 !important}
+    body > *:not(#impresion){display:none !important}
+    #impresion{display:block;color:#000;font:12pt/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+    #impresion h1{font-size:18pt;margin:0 0 2pt}
+    #impresion .fecha{color:#555;font-size:10pt;margin-bottom:12pt}
+    #impresion .cols{columns:2;column-gap:18mm}
+    #impresion section{break-inside:avoid;margin-bottom:10pt}
+    #impresion h2{font-size:9.5pt;text-transform:uppercase;letter-spacing:.08em;color:#444;margin:0 0 4pt;border-bottom:1px solid #bbb;padding-bottom:2pt}
+    #impresion ul{list-style:none;margin:0;padding:0;border:0;box-shadow:none;background:none;border-radius:0}
+    #impresion li{display:flex;align-items:center;gap:8pt;padding:3pt 0;border:0}
+    #impresion .caja{width:11pt;height:11pt;border:1.3pt solid #000;border-radius:2pt;flex:none}
+    #impresion .ic{width:16pt;text-align:center;flex:none}
+    #impresion .ic img{width:14pt;height:14pt;object-fit:cover;border-radius:2pt;vertical-align:middle}
+    #impresion .q{color:#444;font-size:10.5pt;margin-left:auto;padding-left:8pt}
+  }
+  /* Las cruces para borrar solo se ven con el recuadro de agregar abierto (botón +) */
+  #lista .borrar{display:none}
+  body.editando-lista #lista .borrar{display:block}
+  .aviso{
+    margin-top:12px;font-size:.82rem;background:#fff4d6;color:#6b5200;border:1px solid #f0dc9a;
+    border-radius:10px;padding:8px 10px
+  }
+
+  /* ---------- Ventana de escaneo / revisión ---------- */
+  .velo{
+    position:fixed;inset:0;z-index:20;background:var(--velo);
+    display:flex;align-items:flex-end;justify-content:center;
+  }
+  .velo[hidden]{display:none}
+  @media (min-width:700px){ .velo{align-items:center} }
+  .hoja{
+    background:var(--bg);width:100%;max-width:640px;max-height:92vh;
+    border-radius:18px 18px 0 0;display:flex;flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  @media (min-width:700px){ .hoja{border-radius:18px} }
+  .hoja-cab{padding:16px 16px 8px}
+  .hoja-cab h3{margin:0;font-size:1.15rem}
+  .hoja-cab p{margin:4px 0 0;color:var(--muted);font-size:.85rem;white-space:pre-line;overflow-wrap:anywhere}
+  .hoja-cuerpo{overflow:auto;padding:4px 16px 8px;flex:1}
+  .hoja-pie{display:flex;gap:8px;padding:12px 16px 16px;border-top:1px solid var(--line)}
+  .hoja-pie button{
+    flex:1;font:inherit;font-weight:600;padding:12px;border-radius:10px;cursor:pointer;
+    border:1px solid var(--line);background:transparent;color:var(--ink)
+  }
+  .hoja-pie button.principal{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+  .hoja-pie button:disabled{opacity:.5;cursor:default}
+
+  .revision{display:grid;gap:8px}
+  .rev{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;
+    display:grid;grid-template-columns:26px 1fr 72px;gap:8px;align-items:center
+  }
+  .rev select{grid-column:2/-1;font-size:.9rem;padding:8px 10px}
+  .rev input[type=text]{padding:8px 10px}
+  .rev.off{opacity:.45}
+  .rev .ya{grid-column:2/-1;font-size:.75rem;color:var(--muted);margin-top:-2px}
+
+  /* ---------- Lista básica ---------- */
+  .bas-barra{display:flex;gap:16px;align-items:center;margin:0 0 4px;font-size:.9rem}
+  .bas-barra button{font:inherit;font-weight:600;border:0;background:none;color:var(--brand);padding:6px 0;cursor:pointer}
+  .bas-barra .der{margin-left:auto}
+  .bas-grupo h4{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 0 6px 4px}
+  .ya-chip{flex:none;font-size:.72rem;color:var(--brand);font-weight:600;white-space:nowrap}
+  li.ya-en-lista{opacity:.55}
+  .tilde-ya{
+    flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+    background:var(--brand-soft);color:var(--brand);font-weight:700;font-size:.95rem
+  }
+  .bas-info{
+    background:var(--brand-soft);color:var(--brand);border-radius:12px;padding:12px 14px;
+    font-size:.9rem;font-weight:600;margin-bottom:6px;line-height:1.35
+  }
+  .bas-alta{
+    display:grid;grid-template-columns:1fr 64px 46px;gap:8px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px
+  }
+  .bas-alta select{grid-column:1/-1;font-weight:600}
+  .bas-alta input,.bas-alta select{
+    font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;min-width:0;width:100%
+  }
+  .bas-alta input:focus,.bas-alta select:focus{outline:2px solid var(--brand);outline-offset:-1px;border-color:transparent}
+  .bas-alta button{border:0;border-radius:10px;background:var(--brand);color:var(--brand-ink);font-size:1.5rem;line-height:1;cursor:pointer}
+  .bas-copiar{
+    width:100%;font:inherit;font-size:.88rem;padding:10px;border-radius:10px;cursor:pointer;margin-bottom:4px;
+    border:1px dashed var(--brand);background:var(--brand-soft);color:var(--brand);font-weight:600
+  }
+  .bas-vacia{color:var(--muted);text-align:center;padding:22px 8px;font-size:.92rem}
+
+  /* ---------- Hogar / bienvenida ---------- */
+  form.alta .btn-hogar{
+    grid-column:1/-1;font:inherit;font-size:.88rem;font-weight:600;border:0;background:none;
+    color:var(--brand);padding:6px;cursor:pointer
+  }
+  .opcion{
+    display:block;width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:10px
+  }
+  .opcion b{display:block;font-size:1.05rem;margin-bottom:3px}
+  .opcion span{color:var(--muted);font-size:.88rem}
+  .opcion.principal{border:2px solid var(--brand)}
+  .codigo{
+    font:700 1.5rem/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.06em;
+    text-align:center;background:var(--card);border:1px dashed var(--brand);border-radius:12px;
+    padding:14px 8px;color:var(--brand);user-select:all;overflow-wrap:anywhere
+  }
+  .fila-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 4px}
+  .fila-btns button,.unirse button{
+    font:inherit;font-weight:600;padding:11px;border-radius:10px;cursor:pointer;
+    border:1px solid var(--line);background:var(--card);color:var(--ink)
+  }
+  .unirse{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}
+  .unirse[hidden]{display:none}
+  .unirse input{
+    font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);
+    border-radius:10px;padding:11px 12px;min-width:0;width:100%;text-transform:lowercase
+  }
+  .unirse input:focus{outline:2px solid var(--brand);outline-offset:-1px;border-color:transparent}
+  .unirse button{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+  .hogar-sec{margin-top:22px}
+  .hogar-sec h4{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 6px 4px}
+  .nota{color:var(--muted);font-size:.82rem;margin:8px 4px 0;line-height:1.4}
+  .link-btn{font:inherit;font-size:.9rem;font-weight:600;border:0;background:none;color:var(--brand);padding:10px 4px;cursor:pointer}
+
+  /* ---------- Íconos ---------- */
+  .ico{flex:none;width:30px;height:30px;display:grid;place-items:center;font-size:1.4rem;line-height:1}
+  .ico img{width:30px;height:30px;border-radius:8px;object-fit:cover;display:block}
+  li.hecho .ico{opacity:.45;filter:grayscale(1)}
+  .ico-btn{
+    flex:none;width:42px;height:42px;border-radius:10px;border:1px dashed var(--line);background:var(--bg);
+    display:grid;place-items:center;font-size:1.45rem;line-height:1;cursor:pointer;padding:0;color:var(--muted)
+  }
+  .ico-btn.tiene{border-style:solid;background:var(--card)}
+  .ico-btn.activo{outline:2px solid var(--brand);outline-offset:1px}
+  .ico-btn img{width:36px;height:36px;border-radius:7px;object-fit:cover;display:block}
+  .bas-cant{
+    flex:none;width:68px;font:inherit;font-size:.9rem;color:var(--ink);background:transparent;
+    border:1px solid var(--line);border-radius:9px;padding:7px 8px;text-align:center
+  }
+  .bas-cant:focus{outline:2px solid var(--brand);outline-offset:-1px;border-color:transparent}
+  li.ico-panel{display:block;background:var(--bg);padding:10px}
+  .emojis{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:4px}
+  .emojis button{
+    font-size:1.45rem;line-height:1;height:42px;border:0;border-radius:9px;background:var(--card);cursor:pointer;padding:0
+  }
+  .emojis button:active{background:var(--brand-soft)}
+  .ico-acciones{display:flex;gap:8px;margin-top:8px}
+  .ico-acciones button{
+    flex:1;font:inherit;font-size:.85rem;font-weight:600;padding:9px;border-radius:9px;cursor:pointer;
+    border:1px solid var(--line);background:var(--card);color:var(--ink)
+  }
+
+  .cargando{display:flex;flex-direction:column;align-items:center;gap:14px;padding:36px 16px 44px;text-align:center}
+  .cargando img{max-width:180px;max-height:180px;border-radius:10px;border:1px solid var(--line);object-fit:cover}
+  .ruedita{
+    width:34px;height:34px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--brand);
+    animation:gira .8s linear infinite
+  }
+  @keyframes gira{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="top">
+      <h1 id="titulo">🛒 Lista del súper</h1>
+      <div class="derecha">
+        <div class="estado"><span class="punto" id="punto"></span><span id="estadoTxt"></span></div>
+        <div class="idioma" role="group" aria-label="Idioma">
+          <button type="button" data-lang="es" aria-label="Español" title="Español">
+            <svg viewBox="0 0 30 20" aria-hidden="true">
+              <rect width="30" height="20" fill="#c60b1e"/>
+              <rect y="5" width="30" height="10" fill="#ffc400"/>
+            </svg>
+          </button>
+          <button type="button" data-lang="pt" aria-label="Português" title="Português">
+            <svg viewBox="0 0 30 20" aria-hidden="true">
+              <rect width="30" height="20" fill="#009b3a"/>
+              <polygon points="15,2.4 27.6,10 15,17.6 2.4,10" fill="#fedf00"/>
+              <circle cx="15" cy="10" r="4.6" fill="#002776"/>
+              <path d="M10.6 9.1 Q15 7.6 19.5 10.6" stroke="#fff" stroke-width="0.9" fill="none"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="progreso"><div id="barra"></div></div>
+    <div class="resumen" id="resumen"></div>
+
+    <form class="alta" id="alta" autocomplete="off" hidden>
+      <select id="categoria"></select>
+      <input id="nombre" required maxlength="60" enterkeyhint="done">
+      <input id="cantidad" maxlength="12">
+      <button type="submit" class="btn-agregar" id="btnAgregar"></button>
+      <div class="extras">
+        <button type="button" class="btn-extra" id="btnEscanear"></button>
+        <button type="button" class="btn-extra" id="btnBasica"></button>
+      </div>
+      <button type="button" class="btn-hogar" id="btnHogar"></button>
+      <input type="file" id="foto" accept="image/*" hidden>
+      <input type="file" id="fotoIcono" accept="image/*" hidden>
+    </form>
+    <div class="aviso" id="aviso" hidden></div>
+  </header>
+
+  <main id="lista"></main>
+
+  <div class="acciones" id="acciones" hidden>
+    <button id="imprimir"></button>
+    <button id="compartir"></button>
+    <button id="desmarcar"></button>
+    <button id="limpiar" class="principal"></button>
+  </div>
+</div>
+
+<button type="button" class="fab" id="fab" aria-expanded="false" aria-controls="alta">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+    <path d="M12 5v14M5 12h14"/>
+  </svg>
+</button>
+
+<!-- Contenido que se arma solo al imprimir -->
+<div id="impresion" aria-hidden="true"></div>
+
+<!-- Ventana para el escaneo -->
+<div class="velo" id="velo" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="hojaTitulo">
+    <div class="hoja-cab"><h3 id="hojaTitulo"></h3><p id="hojaSub"></p></div>
+    <div class="hoja-cuerpo" id="hojaCuerpo"></div>
+    <div class="hoja-pie" id="hojaPie">
+      <button type="button" id="hojaCancelar"></button>
+      <button type="button" class="principal" id="hojaConfirmar"></button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+/* ============================================================
+   CONFIGURACIÓN — pegá acá los datos de tu proyecto Firebase
+   (Consola Firebase → Configuración del proyecto → Tus apps → Web)
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBlCgIqISdjSiNuM1lZqez3mjE9ZNGZ654",
+  authDomain: "supermercado-ff56a.firebaseapp.com",
+  databaseURL: "https://supermercado-ff56a-default-rtdb.firebaseio.com",
+  projectId: "supermercado-ff56a",
+  storageBucket: "supermercado-ff56a.firebasestorage.app",
+  messagingSenderId: "206180334226",
+  appId: "1:206180334226:web:bb5847e798c3933990c44b"
+};
+/* Código de la lista (hogar). Ya no va fijo: cada hogar tiene el suyo.
+   Se toma del link (?lista=...) o del que se eligió en este dispositivo. */
+let LISTA_ID = null;
+
+/* ---------- Escaneo con IA (Firebase AI Logic + App Check) ----------
+   Clave de sitio de reCAPTCHA registrada en App Check.
+   RECAPTCHA_TIPO: "enterprise" (lo que crea el asistente de Firebase) o "v3". */
+const RECAPTCHA_SITE_KEY = "";
+const RECAPTCHA_TIPO = "enterprise";
+/* Modelo de Gemini que lee la foto */
+/* Modelos de Gemini que leen la foto, en orden de preferencia.
+   Si uno no está disponible o agotó su cupo gratuito, prueba el siguiente. */
+const MODELOS_IA = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
+
+const FB_CDN = "https://www.gstatic.com/firebasejs/13.1.0";
+
+/* ---------- Idiomas ----------
+   Las categorías se guardan en la base con su clave en español,
+   y se muestran traducidas según el idioma elegido.            */
+const CATEGORIAS = ["Almacén","Verdulería","Lácteos","Carnicería","Panadería","Congelados","Bebidas","Limpieza","Perfumería","Otros"];
+
+const TEXTOS = {
+  es: {
+    nombreIdioma: "español rioplatense",
+    titulo: "🛒 Lista del súper",
+    tituloPagina: "Lista del súper",
+    categoria: "Categoría",
+    producto: "Producto (ej: Leche)",
+    cantidad: "Cant.",
+    agregar: "Agregar",
+    conectando: "Conectando…",
+    sincronizado: "Sincronizado",
+    sinConexion: "Sin conexión",
+    error: "Error",
+    modoLocal: "Modo local",
+    resumen: (h, t) => `${h} de ${t} en el changuito`,
+    vacio: "La lista está vacía.<br>Agregá el primer producto arriba.",
+    enCarrito: "✓ En el changuito",
+    desmarcar: "Desmarcar todo",
+    limpiar: "✅ Compra terminada",
+    imprimir: "🖨️ Imprimir",
+    compartir: "📤 Compartir",
+    nadaEnCarrito: "Todavía no tildaste nada en el changuito.",
+    confirmTerminar: (c, p) => `¿Terminaste la compra?\n\nSe quitan los ${c} producto(s) que compraste.` +
+      (p ? `\nLos ${p} que quedaron sin comprar siguen en la lista.` : `\nLa lista queda vacía para la próxima.`),
+    compraLista: "🛒 ¡Compra terminada!",
+    copiado: "Lista copiada. Pegala donde quieras (WhatsApp, mail…).",
+    noCopiado: "No se pudo compartir ni copiar la lista.",
+    textoTitulo: "🛒 Lista del súper",
+    faltan: "Para comprar",
+    confirmBorrar: n => `¿Borrar "${n}"?`,
+    confirmLimpiar: n => `¿Quitar ${n} producto(s) que ya están en el changuito?`,
+    borrar: n => `Borrar ${n}`,
+    avisoLocal: "Firebase todavía no está configurado: la lista se guarda solo en este navegador. Completá <b>firebaseConfig</b> en el archivo para sincronizar con el celular.",
+    avisoFallo: m => `No se pudo conectar con Firebase (${m}). Usando modo local.`,
+    avisoLectura: m => `No se pudo leer la base: ${m}`,
+    escanear: "📷 Escanear lista",
+    escSinFirebase: "Para escanear hace falta configurar Firebase y AI Logic en el archivo.",
+    hogarBtn: "👥 Mi hogar · compartir la lista",
+    bienTitulo: "¡Bienvenido! 🛒",
+    bienSub: "Elegí cómo empezar.",
+    crearTit: "🆕 Crear mi lista",
+    crearDesc: "Una lista nueva para vos y tu hogar. Después podés invitar a quien quieras.",
+    unirTit: "🔑 Tengo un código",
+    unirDesc: "Alguien de tu casa ya tiene la lista y te pasó su código.",
+    codigoPh: "Código de la lista",
+    unirme: "Unirme",
+    hogarTitulo: "👥 Mi hogar",
+    hogarSub: "Todos los que usen este código ven y editan la misma lista.",
+    invitar: "📤 Invitar",
+    copiarCod: "📋 Copiar código",
+    codCopiado: "Código copiado.",
+    hogarNota: "Si la otra persona ya tiene la app instalada, que entre a ＋ → 👥 Mi hogar → “Cambiar de lista” y escriba el código.",
+    cambiarSec: "Cambiar de lista",
+    crearOtra: "🆕 Crear una lista nueva",
+    invitacion: (link, cod) => `Sumate a nuestra lista del súper 🛒\n${link}\n\nSi ya tenés la app, entrá a ＋ → 👥 Mi hogar y escribí este código: ${cod}`,
+    codInvalido: "Ese código no es válido. Revisalo (solo letras, números y guiones).",
+    yaEstas: "Ya estás usando esa lista.",
+    noExiste: "No encontré ninguna lista con ese código. ¿Querés usarlo igual (empieza vacía)?",
+    confirmCambiar: (nuevo, actual) => `Vas a pasar a la lista "${nuevo}".\n\nTu lista actual no se borra: podés volver escribiendo su código "${actual}".`,
+    confirmNueva: actual => `¿Crear una lista nueva y vacía?\n\nTu lista actual no se borra: podés volver escribiendo su código "${actual}".`,
+    buscando: "Buscando…",
+    leyendo: "Leyendo tu lista…",
+    leyendoSub: "Esto tarda unos segundos.",
+    revisar: "Revisá lo que leí",
+    revisarSub: "Corregí o destildá lo que no va. Nada se agrega hasta que confirmes.",
+    nadaTitulo: "No encontré productos",
+    nadaSub: "Probá de nuevo con buena luz, la hoja derecha y sin sombras.",
+    errorTitulo: "No se pudo leer la foto",
+    errorAppCheck: "Revisá la clave de reCAPTCHA y que este sitio esté registrado en App Check.",
+    errorCuota: "Se alcanzó el límite gratuito de la IA por ahora. Probá más tarde.",
+    cancelar: "Cancelar",
+    cerrar: "Cerrar",
+    reintentar: "Otra foto",
+    agregarN: n => n === 1 ? "Agregar 1 producto" : `Agregar ${n} productos`,
+    yaEsta: "Ya está en la lista: se va a volver a marcar como pendiente.",
+    abrirPanel: "Agregar productos",
+    cerrarPanel: "Cerrar",
+    basica: "⭐ Lista básica",
+    basTitulo: "Lista básica",
+    basSub: "Destildá lo que no necesitás esta vez y agregá el resto.",
+    basEditarTitulo: "Editar lista básica",
+    basEditarSub: "Cargá los productos que comprás casi siempre.",
+    basTodos: "Todos",
+    basNinguno: "Ninguno",
+    basEditar: "✏️ Editar",
+    basListo: "Listo",
+    basYaEsta: "✓ en tu lista",
+    basTodoEsta: "👍 Todo lo de tu lista básica ya está en tu lista de compras. Cuando lo compres y lo quites del changuito, vuelve a aparecer acá para agregarlo.",
+    basVacia: "Todavía no hay productos en tu lista básica. Agregalos acá arriba.",
+    basCopiar: n => n === 1 ? "Copiar 1 producto de la lista actual" : `Copiar los ${n} productos de la lista actual`,
+    basQuitar: n => `Quitar ${n} de la lista básica`,
+    icoElegir: n => `Elegir ícono para ${n}`,
+    icoSubir: "📷 Subir imagen",
+    icoQuitar: "Sin ícono",
+    icoListo: "Cerrar",
+    icoError: "No se pudo usar esa imagen.",
+    promptIA: (cats) => `Esta foto es una lista de compras de supermercado escrita a mano.
+Extraé cada producto que aparece, en el orden en que está escrito.
+- "nombre": el producto con la ortografía corregida y la primera letra en mayúscula, en el idioma en que está escrito. No agregues marcas ni productos que no estén.
+- "cantidad": solo si está escrita (por ejemplo "2", "1 kg", "3 paq."). Si no hay, omitila.
+- "categoria": la que mejor corresponda de esta lista: ${cats}. Si dudás, "Otros".
+Ignorá tachaduras, títulos, fechas y garabatos que no sean productos.`
+  },
+  pt: {
+    nombreIdioma: "português do Brasil",
+    titulo: "🛒 Lista do mercado",
+    tituloPagina: "Lista do mercado",
+    categoria: "Categoria",
+    producto: "Produto (ex: Leite)",
+    cantidad: "Qtd.",
+    agregar: "Adicionar",
+    conectando: "Conectando…",
+    sincronizado: "Sincronizado",
+    sinConexion: "Sem conexão",
+    error: "Erro",
+    modoLocal: "Modo local",
+    resumen: (h, t) => `${h} de ${t} no carrinho`,
+    vacio: "A lista está vazia.<br>Adicione o primeiro produto acima.",
+    enCarrito: "✓ No carrinho",
+    desmarcar: "Desmarcar tudo",
+    limpiar: "✅ Compra concluída",
+    imprimir: "🖨️ Imprimir",
+    compartir: "📤 Compartilhar",
+    nadaEnCarrito: "Você ainda não marcou nada no carrinho.",
+    confirmTerminar: (c, p) => `Terminou a compra?\n\nOs ${c} produto(s) comprados serão removidos.` +
+      (p ? `\nOs ${p} que ficaram sem comprar continuam na lista.` : `\nA lista fica vazia para a próxima.`),
+    compraLista: "🛒 Compra concluída!",
+    copiado: "Lista copiada. Cole onde quiser (WhatsApp, e-mail…).",
+    noCopiado: "Não foi possível compartilhar nem copiar a lista.",
+    textoTitulo: "🛒 Lista do mercado",
+    faltan: "Para comprar",
+    confirmBorrar: n => `Apagar "${n}"?`,
+    confirmLimpiar: n => `Remover ${n} produto(s) que já estão no carrinho?`,
+    borrar: n => `Apagar ${n}`,
+    avisoLocal: "O Firebase ainda não está configurado: a lista fica salva só neste navegador. Preencha <b>firebaseConfig</b> no arquivo para sincronizar com o celular.",
+    avisoFallo: m => `Não foi possível conectar ao Firebase (${m}). Usando modo local.`,
+    avisoLectura: m => `Não foi possível ler o banco: ${m}`,
+    escanear: "📷 Escanear lista",
+    escSinFirebase: "Para escanear é preciso configurar o Firebase e o AI Logic no arquivo.",
+    hogarBtn: "👥 Minha casa · compartilhar a lista",
+    bienTitulo: "Bem-vindo! 🛒",
+    bienSub: "Escolha como começar.",
+    crearTit: "🆕 Criar minha lista",
+    crearDesc: "Uma lista nova para você e sua casa. Depois pode convidar quem quiser.",
+    unirTit: "🔑 Tenho um código",
+    unirDesc: "Alguém da sua casa já tem a lista e te passou o código.",
+    codigoPh: "Código da lista",
+    unirme: "Entrar",
+    hogarTitulo: "👥 Minha casa",
+    hogarSub: "Todos que usarem este código veem e editam a mesma lista.",
+    invitar: "📤 Convidar",
+    copiarCod: "📋 Copiar código",
+    codCopiado: "Código copiado.",
+    hogarNota: "Se a outra pessoa já tem o app instalado, ela deve entrar em ＋ → 👥 Minha casa → “Trocar de lista” e digitar o código.",
+    cambiarSec: "Trocar de lista",
+    crearOtra: "🆕 Criar uma lista nova",
+    invitacion: (link, cod) => `Entre na nossa lista do mercado 🛒\n${link}\n\nSe já tem o app, entre em ＋ → 👥 Minha casa e digite este código: ${cod}`,
+    codInvalido: "Esse código não é válido. Confira (só letras, números e hifens).",
+    yaEstas: "Você já está usando essa lista.",
+    noExiste: "Não encontrei nenhuma lista com esse código. Quer usar mesmo assim (começa vazia)?",
+    confirmCambiar: (nuevo, actual) => `Você vai passar para a lista "${nuevo}".\n\nSua lista atual não é apagada: pode voltar digitando o código "${actual}".`,
+    confirmNueva: actual => `Criar uma lista nova e vazia?\n\nSua lista atual não é apagada: pode voltar digitando o código "${actual}".`,
+    buscando: "Procurando…",
+    leyendo: "Lendo sua lista…",
+    leyendoSub: "Isso leva alguns segundos.",
+    revisar: "Confira o que eu li",
+    revisarSub: "Corrija ou desmarque o que não serve. Nada é adicionado até você confirmar.",
+    nadaTitulo: "Não encontrei produtos",
+    nadaSub: "Tente de novo com boa luz, a folha reta e sem sombras.",
+    errorTitulo: "Não foi possível ler a foto",
+    errorAppCheck: "Confira a chave do reCAPTCHA e se este site está registrado no App Check.",
+    errorCuota: "O limite gratuito da IA foi atingido por enquanto. Tente mais tarde.",
+    cancelar: "Cancelar",
+    cerrar: "Fechar",
+    reintentar: "Outra foto",
+    agregarN: n => n === 1 ? "Adicionar 1 produto" : `Adicionar ${n} produtos`,
+    yaEsta: "Já está na lista: vai voltar a ficar pendente.",
+    abrirPanel: "Adicionar produtos",
+    cerrarPanel: "Fechar",
+    basica: "⭐ Lista básica",
+    basTitulo: "Lista básica",
+    basSub: "Desmarque o que não precisa desta vez e adicione o resto.",
+    basEditarTitulo: "Editar lista básica",
+    basEditarSub: "Cadastre os produtos que você compra quase sempre.",
+    basTodos: "Todos",
+    basNinguno: "Nenhum",
+    basEditar: "✏️ Editar",
+    basListo: "Pronto",
+    basYaEsta: "✓ na sua lista",
+    basTodoEsta: "👍 Tudo da sua lista básica já está na sua lista de compras. Quando comprar e remover do carrinho, volta a aparecer aqui para adicionar.",
+    basVacia: "Ainda não há produtos na sua lista básica. Adicione-os aqui em cima.",
+    basCopiar: n => n === 1 ? "Copiar 1 produto da lista atual" : `Copiar os ${n} produtos da lista atual`,
+    basQuitar: n => `Remover ${n} da lista básica`,
+    icoElegir: n => `Escolher ícone para ${n}`,
+    icoSubir: "📷 Enviar imagem",
+    icoQuitar: "Sem ícone",
+    icoListo: "Fechar",
+    icoError: "Não foi possível usar essa imagem.",
+    promptIA: (cats) => `Esta foto é uma lista de compras de supermercado escrita à mão.
+Extraia cada produto que aparece, na ordem em que está escrito.
+- "nombre": o produto com a ortografia corrigida e a primeira letra maiúscula, no idioma em que está escrito. Não adicione marcas nem produtos que não estejam lá.
+- "cantidad": só se estiver escrita (por exemplo "2", "1 kg", "3 pct."). Se não houver, omita.
+- "categoria": a que melhor corresponder desta lista (use exatamente estes valores): ${cats}. Na dúvida, "Otros".
+Ignore rabiscos, títulos, datas e riscos que não sejam produtos.`,
+    cats: {
+      "Almacén":"Mercearia","Verdulería":"Hortifrúti","Lácteos":"Laticínios","Carnicería":"Açougue",
+      "Panadería":"Padaria","Congelados":"Congelados","Bebidas":"Bebidas","Limpieza":"Limpeza",
+      "Perfumería":"Higiene e perfumaria","Otros":"Outros"
+    }
+  }
+};
+TEXTOS.es.cats = {};
+
+const $ = id => document.getElementById(id);
+const leerLS = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
+const guardarLS = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+let idioma = leerLS("idioma", "es");
+if (!TEXTOS[idioma]) idioma = "es";
+const T = () => TEXTOS[idioma];
+const nombreCat = c => T().cats[c] || c;
+
+/* estado y aviso guardan una clave, para poder re-traducirlos al cambiar idioma */
+let estadoActual = { clase: "", clave: "conectando" };
+let avisoActual = null; // { clave, arg }
+
+function setEstado(clase, clave){ estadoActual = { clase, clave }; pintarEstado(); }
+function pintarEstado(){ $("punto").className = "punto " + estadoActual.clase; $("estadoTxt").textContent = T()[estadoActual.clave]; }
+function mostrarAviso(clave, arg){ avisoActual = { clave, arg }; pintarAviso(); }
+function pintarAviso(){
+  const a = $("aviso");
+  if (!avisoActual){ a.hidden = true; return; }
+  const v = T()[avisoActual.clave];
+  a.innerHTML = typeof v === "function" ? v(esc(avisoActual.arg)) : v;
+  a.hidden = false;
+}
+
+function aplicarIdioma(){
+  const t = T();
+  document.documentElement.lang = idioma === "pt" ? "pt-BR" : "es";
+  document.title = t.tituloPagina;
+  $("titulo").textContent = t.titulo;
+  $("nombre").placeholder = t.producto;
+  $("cantidad").placeholder = t.cantidad;
+  $("btnAgregar").textContent = t.agregar;
+  $("btnEscanear").textContent = t.escanear;
+  $("btnBasica").textContent = t.basica;
+  $("btnHogar").textContent = t.hogarBtn;
+  etiquetaFab();
+  $("desmarcar").textContent = t.desmarcar;
+  $("limpiar").textContent = t.limpiar;
+  $("imprimir").textContent = t.imprimir;
+  $("compartir").textContent = t.compartir;
+  sel.setAttribute("aria-label", t.categoria);
+  const actual = sel.value;
+  sel.innerHTML = "";
+  CATEGORIAS.forEach(c => sel.add(new Option(nombreCat(c), c)));
+  sel.value = actual || leerLS("ultima_categoria", "Almacén");
+  document.querySelectorAll(".idioma button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === idioma));
+  pintarEstado(); pintarAviso(); render();
+  if (!$("velo").hidden) pintarHoja();
+}
+
+document.querySelectorAll(".idioma button").forEach(b => b.addEventListener("click", () => {
+  idioma = b.dataset.lang; guardarLS("idioma", idioma); aplicarIdioma();
+}));
+
+/* ---------- Capa de datos: Firebase o, si no está configurado, local ---------- */
+const configurado = !!(firebaseConfig.apiKey && firebaseConfig.databaseURL);
+let fbApp = null;
+
+let fbDb = null, fbBase = null;
+async function asegurarFirebase(){
+  if (fbBase) return;
+  const { initializeApp } = await import(`${FB_CDN}/firebase-app.js`);
+  fbDb = await import(`${FB_CDN}/firebase-database.js`);
+  fbApp = initializeApp(firebaseConfig);
+  fbBase = fbDb.getDatabase(fbApp);
+}
+/* ¿Existe ya una lista con ese código? (para avisar si se escribió mal) */
+async function existeLista(code){
+  if (!configurado) return true;
+  try {
+    await asegurarFirebase();
+    const snap = await fbDb.get(fbDb.ref(fbBase, `listas/${code}`));
+    return snap.exists();
+  } catch { return true; }
+}
+
+async function crearStoreFirebase(){
+  await asegurarFirebase();
+  const db = fbDb, base = fbBase;
+  const itemsRef = db.ref(base, `listas/${LISTA_ID}/items`);
+  const basRef = db.ref(base, `listas/${LISTA_ID}/basicos`);
+
+  db.onValue(db.ref(base, ".info/connected"), s => {
+    s.val() ? setEstado("on", "sincronizado") : setEstado("off", "sinConexion");
+  });
+
+  return {
+    escuchar(cb){ db.onValue(itemsRef, s => cb(s.val() || {}), e => { setEstado("off","error"); mostrarAviso("avisoLectura", e.message); }); },
+    agregar(item){ return db.push(itemsRef, item); },
+    cambiar(id, datos){ return db.update(db.ref(base, `listas/${LISTA_ID}/items/${id}`), datos); },
+    borrar(id){ return db.remove(db.ref(base, `listas/${LISTA_ID}/items/${id}`)); },
+    lote(cambios){ return db.update(itemsRef, cambios); },
+    escucharBasicos(cb){ db.onValue(basRef, s => cb(s.val() || {})); },
+    agregarBasico(item){ return db.push(basRef, item); },
+    borrarBasico(id){ return db.remove(db.ref(base, `listas/${LISTA_ID}/basicos/${id}`)); },
+    cambiarBasico(id, datos){ return db.update(db.ref(base, `listas/${LISTA_ID}/basicos/${id}`), datos); }
+  };
+}
+
+function crearStoreLocal(){
+  const KEY = "lista_super_" + LISTA_ID;
+  let cbs = [];
+  const leer = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
+  const guardar = d => { guardarLS(KEY, JSON.stringify(d)); cbs.forEach(cb => cb(d)); };
+  window.addEventListener("storage", e => { if (e.key === KEY) cbs.forEach(cb => cb(leer())); });
+  const KB = "lista_super_basicos_" + LISTA_ID;
+  let cbsB = [];
+  const leerB = () => { try { return JSON.parse(localStorage.getItem(KB)) || {}; } catch { return {}; } };
+  const guardarB = d => { guardarLS(KB, JSON.stringify(d)); cbsB.forEach(cb => cb(d)); };
+  window.addEventListener("storage", e => { if (e.key === KB) cbsB.forEach(cb => cb(leerB())); });
+  setEstado("", "modoLocal");
+  if (!avisoActual) mostrarAviso("avisoLocal");
+  return {
+    escuchar(cb){ cbs.push(cb); cb(leer()); },
+    agregar(item){ const d = leer(); d["l" + Date.now().toString(36) + Math.random().toString(36).slice(2,6)] = item; guardar(d); },
+    cambiar(id, datos){ const d = leer(); if (d[id]) Object.assign(d[id], datos); guardar(d); },
+    borrar(id){ const d = leer(); delete d[id]; guardar(d); },
+    lote(cambios){
+      const d = leer();
+      for (const [k,v] of Object.entries(cambios)){
+        const [id, campo] = k.split("/");
+        if (campo){ if (d[id]) d[id][campo] = v; }
+        else if (v === null) delete d[id]; else d[id] = v;
+      }
+      guardar(d);
+    },
+    escucharBasicos(cb){ cbsB.push(cb); cb(leerB()); },
+    agregarBasico(item){ const d = leerB(); d["b" + Date.now().toString(36) + Math.random().toString(36).slice(2,6)] = item; guardarB(d); },
+    borrarBasico(id){ const d = leerB(); delete d[id]; guardarB(d); },
+    cambiarBasico(id, datos){ const d = leerB(); if (d[id]) Object.assign(d[id], datos); guardarB(d); }
+  };
+}
+
+/* ---------- Interfaz ---------- */
+const sel = $("categoria");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = s => String(s ?? "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+let items = {};
+let store;
+
+/* En el celular (pantalla táctil) cerramos el teclado después de agregar */
+const esTactil = () => matchMedia("(pointer: coarse)").matches;
+let resaltar = null, resaltarHasta = 0, irAlResaltado = false;
+
+function render(){
+  const t = T();
+  const lista = Object.entries(items).map(([id, it]) => ({ id, ...it }));
+  const total = lista.length;
+  const hechos = lista.filter(i => i.enCarrito).length;
+
+  $("barra").style.width = total ? (hechos / total * 100) + "%" : "0";
+  $("resumen").textContent = total ? t.resumen(hechos, total) : "";
+  $("acciones").hidden = total === 0;
+  $("limpiar").disabled = hechos === 0;
+  $("desmarcar").disabled = hechos === 0;
+
+  if (!total){
+    $("lista").innerHTML = `<div class="vacio"><div class="emoji">🧺</div><p>${t.vacio}</p></div>`;
+    return;
+  }
+
+  const pendientes = lista.filter(i => !i.enCarrito);
+  const enCarrito = lista.filter(i => i.enCarrito).sort((a,b) => (b.marcado||0) - (a.marcado||0));
+  const loc = idioma === "pt" ? "pt" : "es";
+
+  let html = "";
+  for (const cat of CATEGORIAS){
+    const grupo = pendientes.filter(i => (CATEGORIAS.includes(i.categoria) ? i.categoria : "Otros") === cat)
+                            .sort((a,b) => a.nombre.localeCompare(b.nombre, loc));
+    if (grupo.length) html += seccion(nombreCat(cat), grupo);
+  }
+  if (enCarrito.length) html += seccion(t.enCarrito, enCarrito);
+  $("lista").innerHTML = html;
+
+  // Lleva la vista al producto recién agregado (espera a que se cierre el teclado)
+  const nuevo = $("lista").querySelector("li.nuevo");
+  if (nuevo && irAlResaltado){
+    irAlResaltado = false;
+    setTimeout(() => nuevo.scrollIntoView({ block: "center", behavior: "smooth" }), 350);
+  }
+}
+
+function seccion(titulo, grupo){
+  return `<section class="seccion"><h2>${esc(titulo)}</h2><ul>${grupo.map(fila).join("")}</ul></section>`;
+}
+function fila(i){
+  const nuevo = resaltar && Date.now() < resaltarHasta && norm(i.nombre) === resaltar;
+  return `<li class="${i.enCarrito ? "hecho" : ""} ${nuevo ? "nuevo" : ""}">
+    <label class="item">
+      <input type="checkbox" data-id="${esc(i.id)}" ${i.enCarrito ? "checked" : ""} aria-label="${esc(i.nombre)}">
+      ${htmlIcono(iconoDe(i.nombre), "ico")}
+      <span class="nombre">${esc(i.nombre)}</span>
+    </label>
+    ${i.cantidad ? `<span class="cant">${esc(i.cantidad)}</span>` : ""}
+    <button class="borrar" data-borrar="${esc(i.id)}" aria-label="${esc(T().borrar(i.nombre))}">×</button>
+  </li>`;
+}
+
+/* Agrega un producto; si ya existe (mismo nombre), lo vuelve a pendiente en vez de duplicarlo */
+function agregarProducto({ nombre, cantidad = "", categoria = "Otros" }){
+  nombre = String(nombre).trim().slice(0, 60);
+  if (!nombre) return;
+  cantidad = String(cantidad || "").trim().slice(0, 12);
+  if (!CATEGORIAS.includes(categoria)) categoria = "Otros";
+  const existente = Object.entries(items).find(([, it]) => norm(it.nombre) === norm(nombre));
+  if (existente){
+    store.cambiar(existente[0], { enCarrito: false, marcado: null, cantidad: cantidad || existente[1].cantidad || "", categoria });
+  } else {
+    store.agregar({ nombre, cantidad, categoria, enCarrito: false, creado: Date.now() });
+  }
+}
+
+$("alta").addEventListener("submit", e => {
+  e.preventDefault();
+  if (!store) return;
+  const nombre = $("nombre").value.trim();
+  if (!nombre) return;
+  guardarLS("ultima_categoria", sel.value);
+  resaltar = norm(nombre); resaltarHasta = Date.now() + 1800; irAlResaltado = true;
+  agregarProducto({ nombre, cantidad: $("cantidad").value, categoria: sel.value });
+  $("nombre").value = ""; $("cantidad").value = "";
+  if (esTactil()) document.activeElement?.blur();   // celular: se cierra el teclado
+  else $("nombre").focus();                          // PC: listo para el siguiente
+});
+
+$("lista").addEventListener("change", e => {
+  const id = e.target.dataset.id;
+  if (id) store.cambiar(id, { enCarrito: e.target.checked, marcado: e.target.checked ? Date.now() : null });
+});
+$("lista").addEventListener("click", e => {
+  const id = e.target.dataset.borrar;
+  if (id && confirm(T().confirmBorrar(items[id]?.nombre ?? ""))) store.borrar(id);
+});
+
+$("desmarcar").addEventListener("click", () => {
+  const cambios = {};
+  for (const [id, it] of Object.entries(items)) if (it.enCarrito){ cambios[`${id}/enCarrito`] = false; cambios[`${id}/marcado`] = null; }
+  if (Object.keys(cambios).length) store.lote(cambios);
+});
+/* Compra terminada: saca lo que se compró; lo que quedó sin comprar sigue en la lista */
+$("limpiar").addEventListener("click", () => {
+  const ids = Object.entries(items).filter(([, it]) => it.enCarrito).map(([id]) => id);
+  if (!ids.length){ alert(T().nadaEnCarrito); return; }
+  const quedan = Object.values(items).filter(it => !it.enCarrito).length;
+  if (!confirm(T().confirmTerminar(ids.length, quedan))) return;
+  store.lote(Object.fromEntries(ids.map(id => [id, null])));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+/* Productos a usar para imprimir/compartir: lo pendiente; si no hay nada pendiente, todo */
+function productosParaSacar(){
+  const todos = Object.values(items);
+  const pend = todos.filter(i => !i.enCarrito);
+  const lista = pend.length ? pend : todos;
+  const loc = idioma === "pt" ? "pt" : "es";
+  return CATEGORIAS.map(cat => ({
+    cat,
+    prods: lista.filter(i => (CATEGORIAS.includes(i.categoria) ? i.categoria : "Otros") === cat)
+                .sort((a, b) => a.nombre.localeCompare(b.nombre, loc))
+  })).filter(g => g.prods.length);
+}
+const fechaHoy = () => new Date().toLocaleDateString(idioma === "pt" ? "pt-BR" : "es-AR",
+  { weekday: "long", day: "numeric", month: "long" });
+
+/* ---- Imprimir ---- */
+$("imprimir").addEventListener("click", () => {
+  const t = T();
+  $("impresion").innerHTML = `
+    <h1>${esc(t.textoTitulo)}</h1>
+    <div class="fecha">${esc(t.faltan)} · ${esc(fechaHoy())}</div>
+    <div class="cols">${productosParaSacar().map(g => `
+      <section><h2>${esc(nombreCat(g.cat))}</h2><ul>${g.prods.map(i => {
+        const ic = iconoDe(i.nombre);
+        return `<li><span class="caja"></span>
+          <span class="ic">${ic ? (ic.startsWith("data:image/") ? `<img src="${esc(ic)}" alt="">` : esc(ic)) : ""}</span>
+          <span>${esc(i.nombre)}</span>${i.cantidad ? `<span class="q">${esc(i.cantidad)}</span>` : ""}</li>`;
+      }).join("")}</ul></section>`).join("")}
+    </div>`;
+  setTimeout(() => window.print(), 50);
+});
+
+/* ---- Compartir ---- */
+function textoLista(){
+  const t = T();
+  let txt = `${t.textoTitulo}\n${fechaHoy()}\n`;
+  for (const g of productosParaSacar()){
+    txt += `\n*${nombreCat(g.cat).toUpperCase()}*\n`;
+    for (const i of g.prods){
+      const ic = iconoDe(i.nombre);
+      const emoji = ic && !ic.startsWith("data:image/") ? ic + " " : "";
+      txt += `☐ ${emoji}${i.nombre}${i.cantidad ? ` (${i.cantidad})` : ""}\n`;
+    }
+  }
+  return txt.trim();
+}
+async function copiarTexto(txt){
+  try { await navigator.clipboard.writeText(txt); return true; }
+  catch {
+    const ta = document.createElement("textarea");
+    ta.value = txt; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch {}
+    ta.remove(); return ok;
+  }
+}
+$("compartir").addEventListener("click", async () => {
+  const txt = textoLista();
+  if (navigator.share && esTactil()){
+    try { await navigator.share({ title: T().textoTitulo, text: txt }); return; }
+    catch (e) { if (e?.name === "AbortError") return; }   // si cancelaste, no hacemos nada
+  }
+  alert(await copiarTexto(txt) ? T().copiado : T().noCopiado);
+});
+
+/* ============================================================
+   ESCANEO DE LISTA ESCRITA A MANO
+   ============================================================ */
+let iaCargada = null;   // { ai, esquema } una vez cargado el SDK
+const modelosIA = {};
+let escaneo = { fase: "cerrado", foto: null, filas: [], error: "" };
+// fase: "leyendo" | "revision" | "nada" | "error" | "cerrado"
+
+async function obtenerModelo(nombre){
+  if (modelosIA[nombre]) return modelosIA[nombre];
+  if (iaCargada) return crearModelo(nombre);
+  if (!fbApp) throw new Error(T().escSinFirebase);
+
+  // En localhost, App Check usa un token de depuración (se registra en la consola de Firebase)
+  if (["localhost","127.0.0.1"].includes(location.hostname)) self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+
+  const ac = await import(`${FB_CDN}/firebase-app-check.js`);
+  const ai = await import(`${FB_CDN}/firebase-ai.js`);
+
+  if (RECAPTCHA_SITE_KEY){
+    const Proveedor = RECAPTCHA_TIPO === "v3" ? ac.ReCaptchaV3Provider : ac.ReCaptchaEnterpriseProvider;
+    ac.initializeAppCheck(fbApp, { provider: new Proveedor(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
+  }
+
+  const S = ai.Schema;
+  const esquema = S.object({
+    properties: {
+      productos: S.array({
+        items: S.object({
+          properties: {
+            nombre: S.string(),
+            cantidad: S.string(),
+            categoria: S.enumString({ enum: CATEGORIAS })
+          },
+          optionalProperties: ["cantidad"]
+        })
+      })
+    }
+  });
+
+  iaCargada = { ai, esquema, instancia: ai.getAI(fbApp, { backend: new ai.GoogleAIBackend() }) };
+  return crearModelo(nombre);
+}
+function crearModelo(nombre){
+  const { ai, esquema, instancia } = iaCargada;
+  return modelosIA[nombre] = ai.getGenerativeModel(instancia, {
+    model: nombre,
+    generationConfig: { responseMimeType: "application/json", responseSchema: esquema }
+  });
+}
+/* Errores por los que vale la pena probar con otro modelo */
+const esErrorDeModelo = m => /\b404\b|not.?found|not.?supported|no.?longer.?available|\b429\b|quota|resource.?exhausted|too.?many.?requests/i.test(m);
+
+async function leerConIA(partes){
+  let ultimo;
+  for (const nombre of MODELOS_IA){
+    try {
+      const modelo = await obtenerModelo(nombre);
+      return await modelo.generateContent(partes);
+    } catch (err) {
+      ultimo = err;
+      console.warn("Modelo", nombre, "falló:", err?.message);
+      if (!esErrorDeModelo(String(err?.message || err))) throw err;
+    }
+  }
+  throw ultimo;
+}
+
+/* Achica la foto (máx. 1600 px) y la pasa a JPEG en base64 */
+function prepararImagen(archivo){
+  return new Promise((ok, mal) => {
+    const url = URL.createObjectURL(archivo);
+    const img = new Image();
+    img.onload = () => {
+      const max = 1600;
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth * k);
+      c.height = Math.round(img.naturalHeight * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      const dataUrl = c.toDataURL("image/jpeg", 0.85);
+      ok({ dataUrl, base64: dataUrl.split(",")[1] });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); mal(new Error("imagen")); };
+    img.src = url;
+  });
+}
+
+$("btnEscanear").addEventListener("click", () => {
+  if (!configurado || !fbApp){ alert(T().escSinFirebase); return; }
+  $("foto").value = "";
+  $("foto").click();
+});
+
+$("foto").addEventListener("change", async e => {
+  const archivo = e.target.files?.[0];
+  if (!archivo) return;
+  let foto;
+  try { foto = await prepararImagen(archivo); }
+  catch { escaneo = { fase: "error", foto: null, filas: [], error: "" }; abrirHoja("escaneo"); return; }
+
+  escaneo = { fase: "leyendo", foto: foto.dataUrl, filas: [], error: "" };
+  abrirHoja("escaneo");
+
+  try {
+    const t = T();
+    const prompt = t.promptIA(CATEGORIAS.map(c => `"${c}"`).join(", "));
+    const parteImagen = { type: "inlineData", inlineData: { data: foto.base64, mimeType: "image/jpeg" } };
+    const res = await leerConIA([prompt, parteImagen]);
+    if (escaneo.fase !== "leyendo") return; // se canceló mientras leía
+
+    let datos;
+    try { datos = JSON.parse(res.response.text()); } catch { datos = { productos: [] }; }
+    const vistos = new Set();
+    const filas = (datos.productos || [])
+      .map(p => ({ nombre: String(p.nombre || "").trim(), cantidad: String(p.cantidad || "").trim(),
+                   categoria: CATEGORIAS.includes(p.categoria) ? p.categoria : "Otros", incluir: true }))
+      .filter(p => p.nombre && !vistos.has(norm(p.nombre)) && vistos.add(norm(p.nombre)));
+
+    escaneo.filas = filas;
+    escaneo.fase = filas.length ? "revision" : "nada";
+  } catch (err) {
+    if (escaneo.fase !== "leyendo") return;
+    console.error(err);
+    const m = String(err?.message || err);
+    escaneo.fase = "error";
+    const aviso = /app.?check|recaptcha|attestation/i.test(m) ? T().errorAppCheck
+                : /\b429\b|quota|resource.?exhausted|too.?many.?requests/i.test(m) ? T().errorCuota
+                : "";
+    escaneo.error = aviso ? `${aviso}\n\n(${m})` : m;   // siempre se ve el error real
+  }
+  pintarHoja();
+});
+
+let hojaModo = null;   // "escaneo" | "basica"
+function abrirHoja(modo){ hojaModo = modo; $("velo").hidden = false; document.body.classList.add("modal-abierto"); pintarHoja(); }
+function cerrarHoja(){ escaneo.fase = "cerrado"; hojaModo = null; $("velo").hidden = true; document.body.classList.remove("modal-abierto"); }
+
+function pintarHoja(){
+  if (hojaModo === "basica") return pintarBasica();
+  if (hojaModo === "bienvenida") return pintarBienvenida();
+  if (hojaModo === "hogar") return pintarHogar();
+  const t = T();
+  const cuerpo = $("hojaCuerpo"), cancelar = $("hojaCancelar"), confirmar = $("hojaConfirmar");
+  confirmar.hidden = false; confirmar.disabled = false; cancelar.hidden = false;
+
+  if (escaneo.fase === "leyendo"){
+    $("hojaTitulo").textContent = t.leyendo;
+    $("hojaSub").textContent = t.leyendoSub;
+    cuerpo.innerHTML = `<div class="cargando">${escaneo.foto ? `<img src="${escaneo.foto}" alt="">` : ""}<div class="ruedita"></div></div>`;
+    cancelar.textContent = t.cancelar;
+    confirmar.hidden = true;
+    return;
+  }
+  if (escaneo.fase === "nada" || escaneo.fase === "error"){
+    const esError = escaneo.fase === "error";
+    $("hojaTitulo").textContent = esError ? t.errorTitulo : t.nadaTitulo;
+    $("hojaSub").textContent = esError ? (escaneo.error || t.nadaSub) : t.nadaSub;
+    cuerpo.innerHTML = escaneo.foto ? `<div class="cargando"><img src="${escaneo.foto}" alt=""></div>` : "";
+    cancelar.textContent = t.cerrar;
+    confirmar.textContent = t.reintentar;
+    return;
+  }
+  // revisión
+  $("hojaTitulo").textContent = t.revisar;
+  $("hojaSub").textContent = t.revisarSub;
+  const nombresActuales = new Set(Object.values(items).map(i => norm(i.nombre)));
+  cuerpo.innerHTML = `<div class="revision">${escaneo.filas.map((f, i) => `
+    <div class="rev ${f.incluir ? "" : "off"}" data-i="${i}">
+      <input type="checkbox" data-campo="incluir" ${f.incluir ? "checked" : ""} aria-label="${esc(f.nombre)}">
+      <input type="text" data-campo="nombre" value="${esc(f.nombre)}" maxlength="60">
+      <input type="text" data-campo="cantidad" value="${esc(f.cantidad)}" maxlength="12" placeholder="${esc(t.cantidad)}">
+      <select data-campo="categoria">${CATEGORIAS.map(c => `<option value="${esc(c)}" ${c === f.categoria ? "selected" : ""}>${esc(nombreCat(c))}</option>`).join("")}</select>
+      ${nombresActuales.has(norm(f.nombre)) ? `<div class="ya">${esc(t.yaEsta)}</div>` : ""}
+    </div>`).join("")}</div>`;
+  cancelar.textContent = t.cancelar;
+  actualizarBotonConfirmar();
+}
+
+function actualizarBotonConfirmar(){
+  const n = escaneo.filas.filter(f => f.incluir && f.nombre.trim()).length;
+  $("hojaConfirmar").textContent = T().agregarN(n);
+  $("hojaConfirmar").disabled = n === 0;
+}
+
+$("hojaCuerpo").addEventListener("input", e => {
+  const caja = e.target.closest(".rev"); if (!caja) return;
+  const f = escaneo.filas[+caja.dataset.i]; const campo = e.target.dataset.campo;
+  if (campo === "incluir"){ f.incluir = e.target.checked; caja.classList.toggle("off", !f.incluir); }
+  else f[campo] = e.target.value;
+  actualizarBotonConfirmar();
+});
+
+$("hojaCancelar").addEventListener("click", cerrarHoja);
+$("velo").addEventListener("click", e => { if (e.target === $("velo") && escaneo.fase !== "leyendo" && hojaModo !== "bienvenida") cerrarHoja(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("velo").hidden && hojaModo !== "bienvenida") cerrarHoja(); });
+
+/* ---------- Mostrar / ocultar el recuadro de agregar ---------- */
+function etiquetaFab(){
+  const abierto = !$("alta").hidden;
+  $("fab").setAttribute("aria-expanded", abierto);
+  $("fab").setAttribute("aria-label", abierto ? T().cerrarPanel : T().abrirPanel);
+}
+function mostrarPanel(abrir){
+  $("alta").hidden = !abrir;
+  document.body.classList.toggle("editando-lista", abrir);   // con el + abierto se ven las cruces
+  etiquetaFab();
+  if (abrir){
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (!esTactil()) $("nombre").focus();          // en la PC, listo para escribir
+  } else {
+    document.activeElement?.blur();
+  }
+}
+$("fab").addEventListener("click", () => mostrarPanel($("alta").hidden));
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && $("velo").hidden && !$("alta").hidden) mostrarPanel(false);
+});
+
+$("hojaConfirmar").addEventListener("click", () => {
+  if (hojaModo === "basica") return confirmarBasica();
+  if (hojaModo === "hogar") return cerrarHoja();
+  if (escaneo.fase === "nada" || escaneo.fase === "error"){
+    cerrarHoja(); $("foto").value = ""; $("foto").click(); return;
+  }
+  if (escaneo.fase !== "revision") return;
+  escaneo.filas.filter(f => f.incluir && f.nombre.trim()).forEach(agregarProducto);
+  cerrarHoja();
+});
+
+/* ============================================================
+   ÍCONOS — emoji o imagen propia para cada producto
+   Se guardan en la lista básica (campo "icono"):
+   un emoji, una imagen chica (data:image/...) o "" (sin ícono).
+   ============================================================ */
+const SUGERENCIAS = [
+  [["pasta dental","crema dental","creme dental","dentifric","cepillo de dient","escova"], "🪥"],
+  [["papel higien","papel"], "🧻"], [["servillet","guardanapo","rollo de cocina"], "🧻"],
+  [["dulce de leche","doce de leite"], "🍯"],
+  [["crema de enjuague","crema para peinar"], "🧴"], [["papas fritas","papitas"], "🍿"],
+  [["jabon en polvo","jabon liquido"], "🧴"], [["agua oxigenada","agua sanitaria"], "🧴"],
+  [["leche","leite"], "🥛"], [["yogur","iogurte"], "🥣"], [["queso","queijo"], "🧀"],
+  [["manteca","mantequilla","manteiga"], "🧈"], [["huevo","ovo"], "🥚"], [["crema","creme"], "🥛"],
+  [["pan ","panes","pancito","pao","baguet","factura"], "🍞"], [["medialuna","croissant"], "🥐"],
+  [["galletit","galleta","bolacha","biscoit","cookie"], "🍪"], [["torta","bolo"], "🍰"],
+  [["fideo","pasta","macarr","tallarin","ravioli","espaguet"], "🍝"], [["arroz"], "🍚"],
+  [["harina","farinha"], "🌾"], [["polenta","choclo","maiz","milho"], "🌽"],
+  [["yerba","mate"], "🧉"], [["cafe"], "☕"], [["te ","cha "], "🍵"],
+  [["azucar","acucar","edulcorante","adocante"], "🍬"], [["sal "], "🧂"],
+  [["aceite","oleo","azeite","oliva"], "🫒"], [["vinagre"], "🍶"],
+  [["mayonesa","maionese","ketchup","mostaza","mostarda"], "🥫"],
+  [["lata","enlatado","pure de tomate","salsa"], "🥫"], [["atun","atum","sardina","sardinha"], "🐟"],
+  [["carne","bife","asado","milanesa","picada","nalga","peceto","vacio"], "🥩"],
+  [["pollo","frango","pechuga","suprema"], "🍗"], [["pescado","peixe","merluza"], "🐟"],
+  [["jamon","presunto","fiambre","salame","mortadela"], "🥓"], [["salchicha","pancho","salsicha"], "🌭"],
+  [["hamburgues"], "🍔"], [["pizza","prepizza"], "🍕"],
+  [["tomate"], "🍅"], [["papa","batata"], "🥔"], [["cebolla","cebola"], "🧅"], [["ajo","alho"], "🧄"],
+  [["zanahoria","cenoura"], "🥕"], [["lechuga","alface","acelga","espinaca","espinafre","rucula"], "🥬"],
+  [["pepino"], "🥒"], [["pimiento","morron","pimentao","aji"], "🫑"], [["zapallo","abobora","calabaza"], "🎃"],
+  [["palta","aguacate","abacate"], "🥑"], [["brocoli"], "🥦"], [["champi","hongo","cogumelo"], "🍄"],
+  [["banana"], "🍌"], [["manzana","maca"], "🍎"], [["pera"], "🍐"], [["naranja","laranja","mandarina","tangerina"], "🍊"],
+  [["limon","limao"], "🍋"], [["uva"], "🍇"], [["frutilla","fresa","morango"], "🍓"], [["sandia","melancia"], "🍉"],
+  [["anana","pina","abacaxi"], "🍍"], [["durazno","pessego","melocoton"], "🍑"], [["kiwi"], "🥝"],
+  [["poroto","feijao","lenteja","lentilha","garbanzo","grao"], "🫘"], [["mani","amendoim","nuez","noz","almendra"], "🥜"],
+  [["cereal","avena","aveia","granola"], "🥣"], [["miel","mel "], "🍯"], [["mermelada","geleia"], "🍓"],
+  [["chocolate","cacao","nesquik"], "🍫"], [["helado","sorvete"], "🍦"], [["papas fritas","snack","chizito","pochoclo","pipoca"], "🍿"],
+  [["agua"], "💧"], [["soda"], "💧"], [["gaseosa","coca","refresco","refrigerante","sprite","fanta"], "🥤"],
+  [["jugo","suco"], "🧃"], [["vino","vinho"], "🍷"], [["cerveza","cerveja"], "🍺"], [["fernet","whisky","vodka"], "🥃"],
+  [["hielo","gelo"], "🧊"],
+  [["jabon","sabonete","sabao"], "🧼"], [["shampoo","champu","acondicionador","condicionador","crema de enjuague"], "🧴"],
+  [["detergente","lavandina","cloro","limpiador","desinfectante","suavizante","amaciante","jabon en polvo"], "🧴"],
+  [["esponja"], "🧽"], [["bolsa","residuo","saco de lixo"], "🗑️"], [["pañal","panal","fralda"], "👶"],
+  [["desodorante","perfume"], "🧴"], [["algodon","algodao"], "☁️"],
+  [["perro","cachorro","dog "], "🐶"], [["gato ","gatos","cat "], "🐱"], [["pila","bateria"], "🔋"], [["lampara","foco","lampada"], "💡"]
+];
+const EMOJIS = ["🥛","🧀","🥚","🧈","🥣","🍞","🥐","🍪","🍰","🍝","🍚","🌾","🌽","🧉","☕","🍵","🍬","🧂","🫒","🥫",
+  "🥩","🍗","🐟","🥓","🌭","🍔","🍕","🍅","🥔","🧅","🧄","🥕","🥬","🥒","🫑","🥑","🥦","🍄","🎃",
+  "🍌","🍎","🍐","🍊","🍋","🍇","🍓","🍉","🍍","🍑","🥝","🫘","🥜","🍯","🍫","🍦","🍿",
+  "💧","🥤","🧃","🍷","🍺","🥃","🧊","🧼","🧴","🧽","🧻","🪥","🗑️","👶","🐶","🐱","🔋","💡","🛒","⭐"];
+
+function sugerirEmoji(nombre){
+  const n = " " + norm(nombre).replace(/[^a-z0-9ñ ]/g, " ") + " ";
+  for (const [claves, emoji] of SUGERENCIAS){
+    for (const k of claves){
+      if (k.endsWith(" ")){ if (n.includes(" " + k)) return emoji; }       // palabra exacta corta ("te ", "mel ")
+      else if (n.includes(" " + k)) return emoji;                          // empieza con la clave
+    }
+  }
+  return "";
+}
+
+/* Ícono para mostrar: el elegido en la lista básica; si no está en la básica, uno sugerido */
+function iconoDe(nombre){
+  const k = norm(nombre);
+  const b = Object.values(basicos).find(x => norm(x.nombre) === k);
+  if (b && typeof b.icono === "string") return b.icono;
+  return sugerirEmoji(nombre);
+}
+function htmlIcono(icono, clase){
+  if (!icono) return "";
+  return icono.startsWith("data:image/")
+    ? `<span class="${clase}"><img src="${esc(icono)}" alt=""></span>`
+    : `<span class="${clase}">${esc(icono)}</span>`;
+}
+
+/* Achica la imagen a un cuadrado de 96 px (queda en unos pocos KB) */
+function imagenAIcono(archivo){
+  return new Promise((ok, mal) => {
+    const url = URL.createObjectURL(archivo);
+    const img = new Image();
+    img.onload = () => {
+      const lado = 96, c = document.createElement("canvas");
+      c.width = c.height = lado;
+      const m = Math.min(img.naturalWidth, img.naturalHeight);
+      const sx = (img.naturalWidth - m) / 2, sy = (img.naturalHeight - m) / 2;
+      const g = c.getContext("2d");
+      g.fillStyle = "#fff"; g.fillRect(0, 0, lado, lado);
+      g.drawImage(img, sx, sy, m, m, 0, 0, lado, lado);
+      URL.revokeObjectURL(url);
+      ok(c.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); mal(new Error("imagen")); };
+    img.src = url;
+  });
+}
+
+$("fotoIcono").addEventListener("change", async e => {
+  const archivo = e.target.files?.[0];
+  const id = basica.iconoPara;
+  if (!archivo || !id) return;
+  try {
+    const dataUrl = await imagenAIcono(archivo);
+    store.cambiarBasico(id, { icono: dataUrl });
+    basica.iconoPara = null;
+  } catch { alert(T().icoError); }
+});
+
+/* ============================================================
+   LISTA BÁSICA — productos que se compran casi siempre
+   Se guarda en Firebase junto a la lista (listas/<id>/basicos)
+   ============================================================ */
+let basicos = {};
+let basica = { editando: false, sel: new Set(), iconoPara: null, refrescoPendiente: false };
+
+const pendientesNorm = () => new Set(Object.values(items).filter(i => !i.enCarrito).map(i => norm(i.nombre)));
+function preseleccionar(){
+  const pend = pendientesNorm();
+  basica.sel = new Set(Object.entries(basicos).filter(([, b]) => !pend.has(norm(b.nombre))).map(([id]) => id));
+}
+
+$("btnBasica").addEventListener("click", () => {
+  if (!store) return;
+  basica.editando = Object.keys(basicos).length === 0;   // vacía → arranca en modo edición
+  basica.iconoPara = null;
+  preseleccionar();
+  abrirHoja("basica");
+});
+
+function pintarBasica(){
+  const t = T(), cuerpo = $("hojaCuerpo"), cancelar = $("hojaCancelar"), confirmar = $("hojaConfirmar");
+  confirmar.hidden = false; confirmar.disabled = false; cancelar.hidden = false;
+  if (basica.editando){
+    $("hojaTitulo").textContent = t.basEditarTitulo;
+    $("hojaSub").textContent = t.basEditarSub;
+    const cat = leerLS("ultima_categoria_bas", "Almacén");
+    cuerpo.innerHTML = `
+      <form class="bas-alta" id="basAlta" autocomplete="off">
+        <select id="basCat" aria-label="${esc(t.categoria)}">${CATEGORIAS.map(c => `<option value="${esc(c)}" ${c === cat ? "selected" : ""}>${esc(nombreCat(c))}</option>`).join("")}</select>
+        <input id="basNombre" maxlength="60" placeholder="${esc(t.producto)}" enterkeyhint="done">
+        <input id="basCant" maxlength="12" placeholder="${esc(t.cantidad)}">
+        <button type="submit" aria-label="${esc(t.agregar)}">+</button>
+      </form>
+      <div id="basCopiarCaja"></div>
+      <div id="basLista"></div>`;
+    cancelar.hidden = true;
+    confirmar.textContent = t.basListo;
+  } else {
+    $("hojaTitulo").textContent = t.basTitulo;
+    $("hojaSub").textContent = t.basSub;
+    cuerpo.innerHTML = `
+      <div class="bas-barra">
+        <button type="button" data-bas="todos">${esc(t.basTodos)}</button>
+        <button type="button" data-bas="ninguno">${esc(t.basNinguno)}</button>
+        <button type="button" class="der" data-bas="editar">${esc(t.basEditar)}</button>
+      </div>
+      <div id="basLista"></div>`;
+    cancelar.textContent = t.cancelar;
+  }
+  refrescarBasica();
+}
+
+/* Redibuja solo la lista (no el formulario), así no se pierde lo que estás escribiendo */
+function refrescarBasica(){
+  if (hojaModo !== "basica") return;
+  const t = T(), caja = $("basLista");
+  if (!caja) return;
+  // Si estás escribiendo una cantidad en la lista, esperamos a que termines
+  if (caja.contains(document.activeElement) && document.activeElement.dataset?.cant){
+    basica.refrescoPendiente = true; return;
+  }
+  basica.refrescoPendiente = false;
+  if (basica.iconoPara && !basicos[basica.iconoPara]) basica.iconoPara = null;
+  for (const id of [...basica.sel]) if (!basicos[id]) basica.sel.delete(id);
+  const lista = Object.entries(basicos).map(([id, b]) => ({ id, ...b }));
+  if (!lista.length){
+    caja.innerHTML = `<div class="bas-vacia">${esc(t.basVacia)}</div>`;
+  } else {
+    const pend = pendientesNorm();
+    const loc = idioma === "pt" ? "pt" : "es";
+    let html = "";
+    for (const cat of CATEGORIAS){
+      const g = lista.filter(b => (CATEGORIAS.includes(b.categoria) ? b.categoria : "Otros") === cat)
+                     .sort((a, b) => a.nombre.localeCompare(b.nombre, loc));
+      if (!g.length) continue;
+      html += `<div class="bas-grupo"><h4>${esc(nombreCat(cat))}</h4><ul>${g.map(b => basica.editando ? `
+        <li>
+          <button type="button" class="ico-btn ${b.icono ? "tiene" : ""} ${basica.iconoPara === b.id ? "activo" : ""}"
+                  data-icono="${esc(b.id)}" aria-label="${esc(t.icoElegir(b.nombre))}">${
+            b.icono ? (b.icono.startsWith("data:image/") ? `<img src="${esc(b.icono)}" alt="">` : esc(b.icono)) : "＋"}</button>
+          <span class="nombre" style="flex:1">${esc(b.nombre)}</span>
+          <input class="bas-cant" data-cant="${esc(b.id)}" value="${esc(b.cantidad || "")}" maxlength="12"
+                 placeholder="${esc(t.cantidad)}" enterkeyhint="done" aria-label="${esc(t.cantidad)} ${esc(b.nombre)}">
+          <button type="button" class="borrar" data-quitar="${esc(b.id)}" aria-label="${esc(t.basQuitar(b.nombre))}">×</button>
+        </li>${basica.iconoPara === b.id ? `
+        <li class="ico-panel">
+          <div class="emojis">${EMOJIS.map(e => `<button type="button" data-emoji="${e}">${e}</button>`).join("")}</div>
+          <div class="ico-acciones">
+            <button type="button" data-ico="subir">${esc(t.icoSubir)}</button>
+            <button type="button" data-ico="quitar">${esc(t.icoQuitar)}</button>
+            <button type="button" data-ico="cerrar">${esc(t.icoListo)}</button>
+          </div>
+        </li>` : ""}` : `
+${pend.has(norm(b.nombre)) ? `
+        <li class="ya-en-lista">
+          <span class="tilde-ya" aria-hidden="true">✓</span>
+          ${htmlIcono(b.icono, "ico")}
+          <span class="nombre" style="flex:1">${esc(b.nombre)}</span>
+          <span class="ya-chip">${esc(t.basYaEsta)}</span>
+        </li>` : `
+        <li>
+          <label class="item">
+            <input type="checkbox" data-bsel="${esc(b.id)}" ${basica.sel.has(b.id) ? "checked" : ""} aria-label="${esc(b.nombre)}">
+            ${htmlIcono(b.icono, "ico")}
+            <span class="nombre">${esc(b.nombre)}</span>
+          </label>
+          ${b.cantidad ? `<span class="cant">${esc(b.cantidad)}</span>` : ""}
+        </li>`}`).join("")}</ul></div>`;
+    }
+    const disponibles = lista.filter(b => !pend.has(norm(b.nombre))).length;
+    if (!basica.editando && disponibles === 0) html = `<div class="bas-info">${esc(t.basTodoEsta)}</div>` + html;
+    caja.innerHTML = html;
+  }
+  if (basica.editando){
+    const n = faltanEnBasica().length;
+    $("basCopiarCaja").innerHTML = n ? `<button type="button" class="bas-copiar" data-bas="copiar">${esc(t.basCopiar(n))}</button>` : "";
+  } else {
+    actualizarBotonBasica();
+  }
+}
+
+function nadaParaAgregar(){
+  const pend = pendientesNorm();
+  return Object.values(basicos).length > 0 && Object.values(basicos).every(b => pend.has(norm(b.nombre)));
+}
+function actualizarBotonBasica(){
+  const n = basica.sel.size;
+  if (nadaParaAgregar()){
+    $("hojaConfirmar").textContent = T().cerrar;
+    $("hojaConfirmar").disabled = false;
+    $("hojaCancelar").hidden = true;
+    return;
+  }
+  $("hojaCancelar").hidden = false;
+  $("hojaConfirmar").textContent = T().agregarN(n);
+  $("hojaConfirmar").disabled = n === 0;
+}
+
+/* Productos de la lista actual que todavía no están en la básica */
+function faltanEnBasica(){
+  const ya = new Set(Object.values(basicos).map(b => norm(b.nombre)));
+  const vistos = new Set();
+  return Object.values(items).filter(i => {
+    const k = norm(i.nombre);
+    if (ya.has(k) || vistos.has(k)) return false;
+    vistos.add(k); return true;
+  });
+}
+
+function agregarBasico({ nombre, cantidad = "", categoria = "Otros" }){
+  nombre = String(nombre).trim().slice(0, 60);
+  if (!nombre) return;
+  if (Object.values(basicos).some(b => norm(b.nombre) === norm(nombre))) return;
+  store.agregarBasico({
+    nombre,
+    icono: sugerirEmoji(nombre),
+    cantidad: String(cantidad || "").trim().slice(0, 12),
+    categoria: CATEGORIAS.includes(categoria) ? categoria : "Otros"
+  });
+}
+
+$("hojaCuerpo").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.dataset?.cant){ e.preventDefault(); e.target.blur(); }
+});
+$("hojaCuerpo").addEventListener("focusout", () => {
+  setTimeout(() => { if (basica.refrescoPendiente) refrescarBasica(); }, 0);
+});
+
+$("hojaCuerpo").addEventListener("submit", e => {
+  if (e.target.id !== "basAlta") return;
+  e.preventDefault();
+  const nombre = $("basNombre").value.trim();
+  if (!nombre) return;
+  guardarLS("ultima_categoria_bas", $("basCat").value);
+  agregarBasico({ nombre, cantidad: $("basCant").value, categoria: $("basCat").value });
+  $("basNombre").value = ""; $("basCant").value = "";
+  if (esTactil()) document.activeElement?.blur(); else $("basNombre").focus();
+});
+
+$("hojaCuerpo").addEventListener("click", e => {
+  if (hojaModo !== "basica") return;
+  const quitar = e.target.closest("[data-quitar]");
+  if (quitar){ store.borrarBasico(quitar.dataset.quitar); return; }
+  const icoBtn = e.target.closest("[data-icono]");
+  if (icoBtn){
+    const id = icoBtn.dataset.icono;
+    basica.iconoPara = basica.iconoPara === id ? null : id;
+    refrescarBasica();
+    $("hojaCuerpo").querySelector(".ico-panel")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return;
+  }
+  const emoji = e.target.closest("[data-emoji]");
+  if (emoji && basica.iconoPara){
+    store.cambiarBasico(basica.iconoPara, { icono: emoji.dataset.emoji });
+    basica.iconoPara = null; refrescarBasica(); return;
+  }
+  const accIco = e.target.closest("[data-ico]");
+  if (accIco && basica.iconoPara){
+    if (accIco.dataset.ico === "subir"){ $("fotoIcono").value = ""; $("fotoIcono").click(); }
+    else if (accIco.dataset.ico === "quitar"){ store.cambiarBasico(basica.iconoPara, { icono: "" }); basica.iconoPara = null; refrescarBasica(); }
+    else { basica.iconoPara = null; refrescarBasica(); }
+    return;
+  }
+  const btn = e.target.closest("[data-bas]");
+  if (!btn) return;
+  switch (btn.dataset.bas){
+    case "todos":   { const pend = pendientesNorm();
+                      basica.sel = new Set(Object.entries(basicos).filter(([, b]) => !pend.has(norm(b.nombre))).map(([id]) => id));
+                      refrescarBasica(); break; }
+    case "ninguno": basica.sel.clear(); refrescarBasica(); break;
+    case "editar":  basica.editando = true; pintarBasica(); break;
+    case "copiar":  faltanEnBasica().forEach(agregarBasico); break;
+  }
+});
+
+$("hojaCuerpo").addEventListener("change", e => {
+  const idCant = e.target.dataset?.cant;
+  if (idCant){ store.cambiarBasico(idCant, { cantidad: e.target.value.trim().slice(0, 12) }); return; }
+  const id = e.target.dataset?.bsel;
+  if (!id) return;
+  e.target.checked ? basica.sel.add(id) : basica.sel.delete(id);
+  actualizarBotonBasica();
+});
+
+function confirmarBasica(){
+  if (basica.editando){
+    document.activeElement?.blur();                       // guarda una cantidad a medio escribir
+    if (!Object.keys(basicos).length){ cerrarHoja(); return; }
+    basica.editando = false; basica.iconoPara = null;
+    preseleccionar();
+    pintarBasica();
+    return;
+  }
+  if (nadaParaAgregar()){ cerrarHoja(); return; }
+  [...basica.sel].map(id => basicos[id]).filter(Boolean).forEach(b => agregarProducto(b));
+  cerrarHoja();
+}
+
+/* ============================================================
+   HOGAR — cada hogar tiene su propio código de lista.
+   Quien tenga el código ve y edita la misma lista;
+   los demás tienen la suya y no ven nada de la tuya.
+   ============================================================ */
+const ALFABETO = "abcdefghjkmnpqrstuvwxyz23456789";
+function nuevoCodigo(){
+  const r = crypto.getRandomValues(new Uint32Array(10));
+  return Array.from(r, n => ALFABETO[n % ALFABETO.length]).join("");
+}
+/* Acepta el código solo o un link entero con ?lista=... */
+function limpiarCodigo(txt){
+  txt = String(txt || "").trim();
+  try { const u = new URL(txt); txt = u.searchParams.get("lista") || ""; } catch {}
+  txt = txt.toLowerCase().replace(/\s+/g, "");
+  return /^[a-z0-9-]{6,40}$/.test(txt) ? txt : "";
+}
+const linkHogar = code => location.origin + location.pathname + "?lista=" + encodeURIComponent(code);
+function fijarLista(code){
+  LISTA_ID = code;
+  guardarLS("lista_id", code);
+  try {   // deja el código en la dirección: si instalás la app desde acá, queda con tu lista
+    const u = new URL(location.href);
+    if (u.searchParams.get("lista") !== code){ u.searchParams.set("lista", code); history.replaceState(null, "", u); }
+  } catch {}
+}
+
+function pintarBienvenida(){
+  const t = T();
+  $("hojaTitulo").textContent = t.bienTitulo;
+  $("hojaSub").textContent = t.bienSub;
+  $("hojaCuerpo").innerHTML = `
+    <button type="button" class="opcion principal" data-hog="crear"><b>${esc(t.crearTit)}</b><span>${esc(t.crearDesc)}</span></button>
+    <button type="button" class="opcion" data-hog="mostrarUnir"><b>${esc(t.unirTit)}</b><span>${esc(t.unirDesc)}</span></button>
+    <form class="unirse" id="formUnir" ${basica.mostrarUnir ? "" : "hidden"} autocomplete="off">
+      <input id="codUnir" placeholder="${esc(t.codigoPh)}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+      <button type="submit">${esc(t.unirme)}</button>
+    </form>`;
+  $("hojaCancelar").hidden = true;
+  $("hojaConfirmar").hidden = true;
+}
+
+function pintarHogar(){
+  const t = T();
+  $("hojaTitulo").textContent = t.hogarTitulo;
+  $("hojaSub").textContent = t.hogarSub;
+  $("hojaCuerpo").innerHTML = `
+    <div class="codigo">${esc(LISTA_ID)}</div>
+    <div class="fila-btns">
+      <button type="button" data-hog="invitar">${esc(t.invitar)}</button>
+      <button type="button" data-hog="copiar">${esc(t.copiarCod)}</button>
+    </div>
+    <p class="nota">${esc(t.hogarNota)}</p>
+    <div class="hogar-sec">
+      <h4>${esc(t.cambiarSec)}</h4>
+      <form class="unirse" id="formUnir" autocomplete="off">
+        <input id="codUnir" placeholder="${esc(t.codigoPh)}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+        <button type="submit">${esc(t.unirme)}</button>
+      </form>
+      <button type="button" class="link-btn" data-hog="nueva">${esc(t.crearOtra)}</button>
+    </div>`;
+  $("hojaCancelar").hidden = true;
+  $("hojaConfirmar").hidden = false;
+  $("hojaConfirmar").disabled = false;
+  $("hojaConfirmar").textContent = t.cerrar;
+}
+
+$("btnHogar").addEventListener("click", () => { if (LISTA_ID) abrirHoja("hogar"); });
+
+$("hojaCuerpo").addEventListener("click", async e => {
+  if (hojaModo !== "bienvenida" && hojaModo !== "hogar") return;
+  const b = e.target.closest("[data-hog]");
+  if (!b) return;
+  const t = T();
+  switch (b.dataset.hog){
+    case "crear":
+      fijarLista(nuevoCodigo()); cerrarHoja(); conectar(); break;
+    case "mostrarUnir":
+      basica.mostrarUnir = true; $("formUnir").hidden = false; $("codUnir").focus(); break;
+    case "invitar": {
+      const txt = t.invitacion(linkHogar(LISTA_ID), LISTA_ID);
+      if (navigator.share && esTactil()){
+        try { await navigator.share({ title: t.textoTitulo, text: txt }); return; }
+        catch (err) { if (err?.name === "AbortError") return; }
+      }
+      alert(await copiarTexto(txt) ? t.copiado : t.noCopiado); break;
+    }
+    case "copiar":
+      alert(await copiarTexto(LISTA_ID) ? t.codCopiado : t.noCopiado); break;
+    case "nueva":
+      if (confirm(t.confirmNueva(LISTA_ID))){ fijarLista(nuevoCodigo()); location.reload(); }
+      break;
+  }
+});
+
+$("hojaCuerpo").addEventListener("submit", async e => {
+  if (e.target.id !== "formUnir") return;
+  e.preventDefault();
+  const t = T();
+  const code = limpiarCodigo($("codUnir").value);
+  if (!code){ alert(t.codInvalido); return; }
+  if (code === LISTA_ID){ alert(t.yaEstas); return; }
+  const btn = e.target.querySelector("button"); const txtBtn = btn.textContent;
+  btn.disabled = true; btn.textContent = t.buscando;
+  const existe = await existeLista(code);
+  btn.disabled = false; btn.textContent = txtBtn;
+  if (!existe && !confirm(t.noExiste)) return;
+  if (hojaModo === "bienvenida"){
+    fijarLista(code); cerrarHoja(); conectar();
+  } else if (confirm(t.confirmCambiar(code, LISTA_ID))){
+    fijarLista(code); location.reload();
+  }
+});
+
+/* ---------- Instalable como app (PWA) ---------- */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+
+/* ---------- Arranque ---------- */
+async function conectar(){
+  try {
+    store = configurado ? await crearStoreFirebase() : crearStoreLocal();
+  } catch (err) {
+    mostrarAviso("avisoFallo", err.message);
+    store = crearStoreLocal();
+  }
+  store.escuchar(d => { items = d; render(); refrescarBasica(); });
+  store.escucharBasicos(d => { basicos = d; render(); refrescarBasica(); });
+}
+
+aplicarIdioma();
+{
+  const deLink = limpiarCodigo(new URLSearchParams(location.search).get("lista"));
+  const guardado = limpiarCodigo(leerLS("lista_id", ""));
+  const code = deLink || guardado;
+  if (code){ fijarLista(code); conectar(); }
+  else abrirHoja("bienvenida");          // primera vez en este dispositivo
+}
+</script>
+</body>
+</html>
