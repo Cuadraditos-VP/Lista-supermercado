@@ -139,7 +139,7 @@
   @media (min-width:700px){ .hoja{border-radius:18px} }
   .hoja-cab{padding:16px 16px 8px}
   .hoja-cab h3{margin:0;font-size:1.15rem}
-  .hoja-cab p{margin:4px 0 0;color:var(--muted);font-size:.85rem}
+  .hoja-cab p{margin:4px 0 0;color:var(--muted);font-size:.85rem;white-space:pre-line;overflow-wrap:anywhere}
   .hoja-cuerpo{overflow:auto;padding:4px 16px 8px;flex:1}
   .hoja-pie{display:flex;gap:8px;padding:12px 16px 16px;border-top:1px solid var(--line)}
   .hoja-pie button{
@@ -238,7 +238,9 @@ const LISTA_ID = "super-j9igf5vqyr";
 const RECAPTCHA_SITE_KEY = "";
 const RECAPTCHA_TIPO = "enterprise";
 /* Modelo de Gemini que lee la foto */
-const MODELO_IA = "gemini-3.8-flash";
+/* Modelos de Gemini que leen la foto, en orden de preferencia.
+   Si uno no está disponible o agotó su cupo gratuito, prueba el siguiente. */
+const MODELOS_IA = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
 
 const FB_CDN = "https://www.gstatic.com/firebasejs/13.1.0";
 
@@ -548,12 +550,14 @@ $("limpiar").addEventListener("click", () => {
 /* ============================================================
    ESCANEO DE LISTA ESCRITA A MANO
    ============================================================ */
-let modeloIA = null;
+let iaCargada = null;   // { ai, esquema } una vez cargado el SDK
+const modelosIA = {};
 let escaneo = { fase: "cerrado", foto: null, filas: [], error: "" };
 // fase: "leyendo" | "revision" | "nada" | "error" | "cerrado"
 
-async function obtenerModelo(){
-  if (modeloIA) return modeloIA;
+async function obtenerModelo(nombre){
+  if (modelosIA[nombre]) return modelosIA[nombre];
+  if (iaCargada) return crearModelo(nombre);
   if (!fbApp) throw new Error(T().escSinFirebase);
 
   // En localhost, App Check usa un token de depuración (se registra en la consola de Firebase)
@@ -583,11 +587,32 @@ async function obtenerModelo(){
     }
   });
 
-  modeloIA = ai.getGenerativeModel(ai.getAI(fbApp, { backend: new ai.GoogleAIBackend() }), {
-    model: MODELO_IA,
+  iaCargada = { ai, esquema, instancia: ai.getAI(fbApp, { backend: new ai.GoogleAIBackend() }) };
+  return crearModelo(nombre);
+}
+function crearModelo(nombre){
+  const { ai, esquema, instancia } = iaCargada;
+  return modelosIA[nombre] = ai.getGenerativeModel(instancia, {
+    model: nombre,
     generationConfig: { responseMimeType: "application/json", responseSchema: esquema }
   });
-  return modeloIA;
+}
+/* Errores por los que vale la pena probar con otro modelo */
+const esErrorDeModelo = m => /\b404\b|not.?found|not.?supported|no.?longer.?available|\b429\b|quota|resource.?exhausted|too.?many.?requests/i.test(m);
+
+async function leerConIA(partes){
+  let ultimo;
+  for (const nombre of MODELOS_IA){
+    try {
+      const modelo = await obtenerModelo(nombre);
+      return await modelo.generateContent(partes);
+    } catch (err) {
+      ultimo = err;
+      console.warn("Modelo", nombre, "falló:", err?.message);
+      if (!esErrorDeModelo(String(err?.message || err))) throw err;
+    }
+  }
+  throw ultimo;
 }
 
 /* Achica la foto (máx. 1600 px) y la pasa a JPEG en base64 */
@@ -628,11 +653,10 @@ $("foto").addEventListener("change", async e => {
   abrirHoja();
 
   try {
-    const modelo = await obtenerModelo();
     const t = T();
     const prompt = t.promptIA(CATEGORIAS.map(c => `"${c}"`).join(", "));
     const parteImagen = { type: "inlineData", inlineData: { data: foto.base64, mimeType: "image/jpeg" } };
-    const res = await modelo.generateContent([prompt, parteImagen]);
+    const res = await leerConIA([prompt, parteImagen]);
     if (escaneo.fase !== "leyendo") return; // se canceló mientras leía
 
     let datos;
@@ -650,9 +674,10 @@ $("foto").addEventListener("change", async e => {
     console.error(err);
     const m = String(err?.message || err);
     escaneo.fase = "error";
-    escaneo.error = /app.?check|recaptcha|attestation|403|permission/i.test(m) ? T().errorAppCheck
-                  : /quota|429|resource.?exhausted|rate/i.test(m) ? T().errorCuota
-                  : m;
+    const aviso = /app.?check|recaptcha|attestation/i.test(m) ? T().errorAppCheck
+                : /\b429\b|quota|resource.?exhausted|too.?many.?requests/i.test(m) ? T().errorCuota
+                : "";
+    escaneo.error = aviso ? `${aviso}\n\n(${m})` : m;   // siempre se ve el error real
   }
   pintarHoja();
 });
