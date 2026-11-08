@@ -151,6 +151,7 @@
     background:transparent;color:var(--ink);border:1px solid var(--line)
   }
   .acciones button.principal{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+  .acciones button.peligro{color:#c0392b;border-color:#c0392b}
   .acciones button:disabled{opacity:.45;cursor:default}
   /* Los botones de abajo son de la vista de compras: se ocultan mientras editás con el + */
   body.editando-lista .acciones{display:none}
@@ -388,6 +389,7 @@
     <button id="compartir"></button>
     <button id="desmarcar"></button>
     <button id="limpiar" class="principal"></button>
+    <button id="vaciar" class="peligro"></button>
   </div>
 </div>
 
@@ -466,6 +468,8 @@ const TEXTOS = {
     enCarrito: "✓ En el changuito",
     desmarcar: "Desmarcar todo",
     limpiar: "✅ Compra terminada",
+    vaciar: "🗑️ Vaciar lista",
+    confirmVaciar: n => `¿Vaciar toda la lista?\n\nSe borran los ${n} producto(s), comprados o no. No se puede deshacer.`,
     imprimir: "🖨️ Imprimir",
     compartir: "📤 Compartir",
     nadaEnCarrito: "Todavía no tildaste nada en el changuito.",
@@ -569,6 +573,8 @@ Ignorá tachaduras, títulos, fechas y garabatos que no sean productos.`
     enCarrito: "✓ No carrinho",
     desmarcar: "Desmarcar tudo",
     limpiar: "✅ Compra concluída",
+    vaciar: "🗑️ Esvaziar lista",
+    confirmVaciar: n => `Esvaziar a lista inteira?\n\nOs ${n} produto(s) serão apagados, comprados ou não. Não dá para desfazer.`,
     imprimir: "🖨️ Imprimir",
     compartir: "📤 Compartilhar",
     nadaEnCarrito: "Você ainda não marcou nada no carrinho.",
@@ -700,6 +706,7 @@ function aplicarIdioma(){
   etiquetaFab();
   $("desmarcar").textContent = t.desmarcar;
   $("limpiar").textContent = t.limpiar;
+  $("vaciar").textContent = t.vaciar;
   $("imprimir").textContent = t.imprimir;
   $("compartir").textContent = t.compartir;
   sel.setAttribute("aria-label", t.categoria);
@@ -983,6 +990,15 @@ $("limpiar").addEventListener("click", () => {
   if (!ids.length){ alert(T().nadaEnCarrito); return; }
   const quedan = Object.values(items).filter(it => !it.enCarrito).length;
   if (!confirm(T().confirmTerminar(ids.length, quedan))) return;
+  store.lote(Object.fromEntries(ids.map(id => [id, null])));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+/* Vaciar lista: borra todos los productos de una vez (comprados o no) */
+$("vaciar").addEventListener("click", () => {
+  const ids = Object.keys(items);
+  if (!ids.length) return;
+  if (!confirm(T().confirmVaciar(ids.length))) return;
   store.lote(Object.fromEntries(ids.map(id => [id, null])));
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
