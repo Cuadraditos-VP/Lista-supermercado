@@ -506,8 +506,13 @@ const TEXTOS = {
     hogarNota: "Si la otra persona ya tiene la app instalada, que entre a ＋ → 👥 Mi hogar → “Cambiar de lista” y escriba el código.",
     cambiarSec: "Cambiar de lista",
     crearOtra: "🆕 Crear una lista nueva",
+    acortar: "🔢 Pasar a un código corto",
+    confirmAcortar: "¿Cambiar el código de tu lista por uno de 2 números?\n\nLos productos se pasan solos y los demás celulares del hogar se cambian solos al nuevo código.",
+    acortado: cod => `Listo. El nuevo código de tu lista es ${cod}.`,
+    acortarError: "No se pudo conectar. Probá de nuevo con internet.",
+    creando: "Creando…",
     invitacion: (link, cod) => `Sumate a nuestra lista del súper 🛒\n${link}\n\nSi ya tenés la app, entrá a ＋ → 👥 Mi hogar y escribí este código: ${cod}`,
-    codInvalido: "Ese código no es válido. Revisalo (solo letras, números y guiones).",
+    codInvalido: "Ese código no es válido. Revisalo (por ejemplo: 42).",
     yaEstas: "Ya estás usando esa lista.",
     noExiste: "No encontré ninguna lista con ese código. ¿Querés usarlo igual (empieza vacía)?",
     confirmCambiar: (nuevo, actual) => `Vas a pasar a la lista "${nuevo}".\n\nTu lista actual no se borra: podés volver escribiendo su código "${actual}".`,
@@ -611,8 +616,13 @@ Ignorá tachaduras, títulos, fechas y garabatos que no sean productos.`
     hogarNota: "Se a outra pessoa já tem o app instalado, ela deve entrar em ＋ → 👥 Minha casa → “Trocar de lista” e digitar o código.",
     cambiarSec: "Trocar de lista",
     crearOtra: "🆕 Criar uma lista nova",
+    acortar: "🔢 Trocar por um código curto",
+    confirmAcortar: "Trocar o código da sua lista por um de 2 números?\n\nOs produtos passam sozinhos e os outros celulares da casa mudam sozinhos para o novo código.",
+    acortado: cod => `Pronto. O novo código da sua lista é ${cod}.`,
+    acortarError: "Não foi possível conectar. Tente de novo com internet.",
+    creando: "Criando…",
     invitacion: (link, cod) => `Entre na nossa lista do mercado 🛒\n${link}\n\nSe já tem o app, entre em ＋ → 👥 Minha casa e digite este código: ${cod}`,
-    codInvalido: "Esse código não é válido. Confira (só letras, números e hifens).",
+    codInvalido: "Esse código não é válido. Confira (por exemplo: 42).",
     yaEstas: "Você já está usando essa lista.",
     noExiste: "Não encontrei nenhuma lista com esse código. Quer usar mesmo assim (começa vazia)?",
     confirmCambiar: (nuevo, actual) => `Você vai passar para a lista "${nuevo}".\n\nSua lista atual não é apagada: pode voltar digitando o código "${actual}".`,
@@ -750,6 +760,12 @@ async function crearStoreFirebase(){
   const db = fbDb, base = fbBase;
   const itemsRef = db.ref(base, `listas/${LISTA_ID}/items`);
   const basRef = db.ref(base, `listas/${LISTA_ID}/basicos`);
+
+  /* Si este código se cambió por uno corto, seguir al nuevo */
+  db.onValue(db.ref(base, `listas/${LISTA_ID}/movidaA`), s => {
+    const nuevo = limpiarCodigo(s.val());
+    if (nuevo && nuevo !== LISTA_ID){ fijarLista(nuevo); location.reload(); }
+  });
 
   db.onValue(db.ref(base, ".info/connected"), s => {
     s.val() ? setEstado("on", "sincronizado") : setEstado("off", "sinConexion");
@@ -1651,17 +1667,59 @@ function confirmarBasica(){
    Quien tenga el código ve y edita la misma lista;
    los demás tienen la suya y no ven nada de la tuya.
    ============================================================ */
-const ALFABETO = "abcdefghjkmnpqrstuvwxyz23456789";
-function nuevoCodigo(){
-  const r = crypto.getRandomValues(new Uint32Array(10));
-  return Array.from(r, n => ALFABETO[n % ALFABETO.length]).join("");
+/* Códigos cortos: un número de 2 cifras (10 a 99) que no esté usado.
+   Si están casi todos ocupados, pasa a 3 cifras. */
+const esCorto = code => /^\d{2,3}$/.test(code);
+const azar = (min, max) => min + crypto.getRandomValues(new Uint32Array(1))[0] % (max - min + 1);
+async function libre(code){
+  if (!configurado) return true;
+  try {
+    await asegurarFirebase();
+    return !(await fbDb.get(fbDb.ref(fbBase, `listas/${code}`))).exists();
+  } catch { return false; }
+}
+async function nuevoCodigo(){
+  for (const [min, max, intentos] of [[10, 99, 25], [100, 999, 25]]){
+    for (let i = 0; i < intentos; i++){
+      const code = String(azar(min, max));
+      if (await libre(code)) return code;
+    }
+  }
+  throw new Error("sin código libre");
+}
+/* Reserva el código para que nadie más lo tome aunque la lista quede vacía */
+async function reservar(code){
+  if (!configurado) return;
+  await asegurarFirebase();
+  await fbDb.set(fbDb.ref(fbBase, `listas/${code}/creada`), Date.now());
+}
+async function crearHogar(){
+  const code = await nuevoCodigo();
+  await reservar(code);
+  return code;
+}
+/* Pasa la lista actual (código largo) a un código corto y deja un aviso
+   en el código viejo para que los otros celulares se cambien solos. */
+async function acortarCodigo(){
+  await asegurarFirebase();
+  const viejo = LISTA_ID;
+  const datos = (await fbDb.get(fbDb.ref(fbBase, `listas/${viejo}`))).val() || {};
+  delete datos.movidaA;
+  const code = await nuevoCodigo();
+  await fbDb.update(fbDb.ref(fbBase), {
+    [`listas/${code}`]: { ...datos, creada: Date.now() },
+    [`listas/${viejo}/items`]: null,
+    [`listas/${viejo}/basicos`]: null,
+    [`listas/${viejo}/movidaA`]: code
+  });
+  return code;
 }
 /* Acepta el código solo o un link entero con ?lista=... */
 function limpiarCodigo(txt){
   txt = String(txt || "").trim();
   try { const u = new URL(txt); txt = u.searchParams.get("lista") || ""; } catch {}
   txt = txt.toLowerCase().replace(/\s+/g, "");
-  return /^[a-z0-9-]{6,40}$/.test(txt) ? txt : "";
+  return /^(\d{2,3}|[a-z0-9-]{6,40})$/.test(txt) ? txt : "";
 }
 const linkHogar = code => location.origin + location.pathname + "?lista=" + encodeURIComponent(code);
 function fijarLista(code){
@@ -1681,7 +1739,7 @@ function pintarBienvenida(){
     <button type="button" class="opcion principal" data-hog="crear"><b>${esc(t.crearTit)}</b><span>${esc(t.crearDesc)}</span></button>
     <button type="button" class="opcion" data-hog="mostrarUnir"><b>${esc(t.unirTit)}</b><span>${esc(t.unirDesc)}</span></button>
     <form class="unirse" id="formUnir" ${basica.mostrarUnir ? "" : "hidden"} autocomplete="off">
-      <input id="codUnir" placeholder="${esc(t.codigoPh)}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+      <input id="codUnir" inputmode="numeric" placeholder="${esc(t.codigoPh)}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
       <button type="submit">${esc(t.unirme)}</button>
     </form>`;
   $("hojaCancelar").hidden = true;
@@ -1702,9 +1760,10 @@ function pintarHogar(){
     <div class="hogar-sec">
       <h4>${esc(t.cambiarSec)}</h4>
       <form class="unirse" id="formUnir" autocomplete="off">
-        <input id="codUnir" placeholder="${esc(t.codigoPh)}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+        <input id="codUnir" inputmode="numeric" placeholder="${esc(t.codigoPh)}" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
         <button type="submit">${esc(t.unirme)}</button>
       </form>
+      ${configurado && !esCorto(LISTA_ID) ? `<button type="button" class="link-btn" data-hog="acortar">${esc(t.acortar)}</button>` : ""}
       <button type="button" class="link-btn" data-hog="nueva">${esc(t.crearOtra)}</button>
     </div>`;
   $("hojaCancelar").hidden = true;
@@ -1721,8 +1780,20 @@ $("hojaCuerpo").addEventListener("click", async e => {
   if (!b) return;
   const t = T();
   switch (b.dataset.hog){
-    case "crear":
-      fijarLista(nuevoCodigo()); cerrarHoja(); conectar(); break;
+    case "crear": {
+      const txtBtn = b.innerHTML;
+      b.disabled = true; b.textContent = t.creando;
+      try { fijarLista(await crearHogar()); cerrarHoja(); conectar(); }
+      catch { alert(t.acortarError); b.disabled = false; b.innerHTML = txtBtn; }
+      break;
+    }
+    case "acortar": {
+      if (!confirm(t.confirmAcortar)) return;
+      b.disabled = true;
+      try { const code = await acortarCodigo(); alert(t.acortado(code)); fijarLista(code); location.reload(); }
+      catch { alert(t.acortarError); b.disabled = false; }
+      break;
+    }
     case "mostrarUnir":
       basica.mostrarUnir = true; $("formUnir").hidden = false; $("codUnir").focus(); break;
     case "invitar": {
@@ -1736,7 +1807,10 @@ $("hojaCuerpo").addEventListener("click", async e => {
     case "copiar":
       alert(await copiarTexto(LISTA_ID) ? t.codCopiado : t.noCopiado); break;
     case "nueva":
-      if (confirm(t.confirmNueva(LISTA_ID))){ fijarLista(nuevoCodigo()); location.reload(); }
+      if (confirm(t.confirmNueva(LISTA_ID))){
+        try { fijarLista(await crearHogar()); location.reload(); }
+        catch { alert(t.acortarError); }
+      }
       break;
   }
 });
