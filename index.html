@@ -28,7 +28,7 @@
     padding-bottom:env(safe-area-inset-bottom);
   }
   body.modal-abierto{overflow:hidden}
-  .wrap{max-width:640px;margin:0 auto;padding:0 16px calc(110px + env(safe-area-inset-bottom))}
+  .wrap{max-width:var(--ancho,640px);margin:0 auto;padding:0 16px calc(110px + env(safe-area-inset-bottom))}
 
   header{
     position:sticky;top:0;z-index:5;background:var(--bg);
@@ -61,7 +61,7 @@
 
   /* Botón flotante "+" que muestra u oculta el recuadro de agregar */
   .fab{
-    position:fixed;z-index:10;right:max(20px, calc(50% - 300px));
+    position:fixed;z-index:10;right:max(20px, calc(50% - var(--ancho,640px) / 2 + 20px));
     bottom:calc(22px + env(safe-area-inset-bottom));
     width:60px;height:60px;border-radius:50%;border:0;cursor:pointer;
     background:var(--brand);color:var(--brand-ink);
@@ -97,6 +97,10 @@
   }
 
   .seccion{margin-top:20px}
+  /* PC / pantalla ancha: columnas angostas, del ancho del nombre más largo (ver ajustarColumnas) */
+  body.en-columnas #lista{max-width:var(--ancho-lista);margin:0 auto;column-count:var(--cols,1);column-gap:16px}
+  body.en-columnas #lista .seccion{break-inside:avoid;margin-top:0;padding-top:20px}
+  body.en-columnas form.alta, body.en-columnas .aviso{max-width:608px;margin-left:auto;margin-right:auto}
   .seccion h2{
     font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
     margin:0 0 8px 4px;font-weight:700;
@@ -847,6 +851,7 @@ function render(){
 
   if (!total){
     $("lista").innerHTML = `<div class="vacio"><div class="emoji">🧺</div><p>${t.vacio}</p></div>`;
+    ajustarColumnas();
     return;
   }
 
@@ -862,6 +867,7 @@ function render(){
   }
   if (enCarrito.length) html += seccion(t.enCarrito, enCarrito);
   $("lista").innerHTML = html;
+  ajustarColumnas();
 
   // Lleva la vista al producto recién agregado (espera a que se cierre el teclado)
   const nuevo = $("lista").querySelector("li.nuevo");
@@ -870,6 +876,47 @@ function render(){
     setTimeout(() => nuevo.scrollIntoView({ block: "center", behavior: "smooth" }), 350);
   }
 }
+
+/* ---------- Columnas en pantallas anchas ----------
+   Cada columna mide lo justo para el nombre más largo de las listas (la de compras y la básica),
+   y la página se reparte en hasta COLUMNAS_MAX columnas, según lo que entre en la ventana. */
+const COLUMNAS_MAX = Math.min(4, Math.max(1, parseInt(new URLSearchParams(location.search).get("cols"), 10) || 3));
+const ANCHO_MIN_COLUMNAS = 700, SEP_COLUMNAS = 16;
+let lienzoMedida = null;
+function anchoTexto(textos, fuente){
+  lienzoMedida ||= document.createElement("canvas").getContext("2d");
+  lienzoMedida.font = fuente;
+  return textos.reduce((m, x) => Math.max(m, lienzoMedida.measureText(x).width), 0);
+}
+function ajustarColumnas(){
+  const raiz = document.documentElement.style;
+  const secciones = $("lista").querySelectorAll(".seccion").length;
+  const vw = document.documentElement.clientWidth;
+  if (vw < ANCHO_MIN_COLUMNAS || !secciones){
+    document.body.classList.remove("en-columnas");
+    raiz.removeProperty("--ancho"); raiz.removeProperty("--ancho-lista"); raiz.removeProperty("--cols");
+    return;
+  }
+  const cs = getComputedStyle(document.body);
+  const px = parseFloat(cs.fontSize) || 16;
+  const todos = [...Object.values(items), ...Object.values(basicos)];
+  const nombre = anchoTexto(todos.map(i => String(i.nombre || "")), `${px}px ${cs.fontFamily}`);
+  let fijo;
+  if (document.body.classList.contains("editando-lista")) fijo = 276;        // casilla + ícono + − cantidad + y ×
+  else {
+    const cant = anchoTexto(Object.values(items).map(i => String(i.cantidad || "")), `600 ${px * .8}px ${cs.fontFamily}`);
+    fijo = 110 + (cant ? cant + 28 : 0);                                      // casilla + ícono + cantidad
+  }
+  const disponible = vw - 32;
+  const col = Math.min(Math.ceil(nombre + fijo + 4), disponible);
+  const cols = Math.max(1, Math.min(COLUMNAS_MAX, secciones, Math.floor((disponible + SEP_COLUMNAS) / (col + SEP_COLUMNAS))));
+  const anchoLista = cols * col + (cols - 1) * SEP_COLUMNAS;
+  document.body.classList.add("en-columnas");
+  raiz.setProperty("--cols", cols);
+  raiz.setProperty("--ancho-lista", anchoLista + "px");
+  raiz.setProperty("--ancho", Math.max(anchoLista + 32, Math.min(640, vw)) + "px");
+}
+addEventListener("resize", ajustarColumnas);
 
 function seccion(titulo, grupo){
   return `<section class="seccion"><h2>${esc(titulo)}</h2><ul>${grupo.map(fila).join("")}</ul></section>`;
@@ -1292,6 +1339,7 @@ function mostrarPanel(abrir){
   $("alta").hidden = !abrir;
   document.body.classList.toggle("editando-lista", abrir);   // con el + abierto se ven las cruces
   etiquetaFab();
+  ajustarColumnas();
   if (abrir){
     window.scrollTo({ top: 0, behavior: "smooth" });
     if (!esTactil()) $("nombre").focus();          // en la PC, listo para escribir
