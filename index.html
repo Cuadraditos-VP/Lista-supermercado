@@ -880,7 +880,7 @@ function render(){
 /* ---------- Columnas en pantallas anchas ----------
    Cada columna mide lo justo para el nombre más largo de las listas (la de compras y la básica),
    y la página se reparte en hasta COLUMNAS_MAX columnas, según lo que entre en la ventana. */
-const COLUMNAS_MAX = Math.min(4, Math.max(1, parseInt(new URLSearchParams(location.search).get("cols"), 10) || 3));
+const COLUMNAS_MAX = Math.min(4, Math.max(1, parseInt(new URLSearchParams(location.search).get("cols"), 10) || 4));
 const ANCHO_MIN_COLUMNAS = 700, SEP_COLUMNAS = 16;
 let lienzoMedida = null;
 function anchoTexto(textos, fuente){
