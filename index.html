@@ -737,6 +737,12 @@ document.querySelectorAll(".idioma button").forEach(b => b.addEventListener("cli
   idioma = b.dataset.lang; guardarLS("idioma", idioma); aplicarIdioma();
 }));
 
+/* ---------- Lista básica predeterminada ----------
+   Los productos e íconos de basicos.json se cargan en cada hogar nuevo. */
+async function basicosPredeterminados(){
+  try { const r = await fetch("./basicos.json"); return r.ok ? await r.json() : null; } catch { return null; }
+}
+
 /* ---------- Capa de datos: Firebase o, si no está configurado, local ---------- */
 const configurado = !!(firebaseConfig.apiKey && firebaseConfig.databaseURL);
 let fbApp = null;
@@ -784,7 +790,18 @@ async function crearStoreFirebase(){
     escucharBasicos(cb){ db.onValue(basRef, s => cb(s.val() || {})); },
     agregarBasico(item){ return db.push(basRef, item); },
     borrarBasico(id){ return db.remove(db.ref(base, `listas/${LISTA_ID}/basicos/${id}`)); },
-    cambiarBasico(id, datos){ return db.update(db.ref(base, `listas/${LISTA_ID}/basicos/${id}`), datos); }
+    cambiarBasico(id, datos){ return db.update(db.ref(base, `listas/${LISTA_ID}/basicos/${id}`), datos); },
+    /* Primera vez que se abre un hogar: le carga la lista básica predeterminada.
+       Queda una marca para no volver a cargarla si después la vacían. */
+    async iniciarBasicos(){
+      const marca = db.ref(base, `listas/${LISTA_ID}/basicosIniciados`);
+      if ((await db.get(marca)).exists()) return;
+      if ((await db.get(basRef)).exists()){ await db.set(marca, Date.now()); return; }
+      const pred = await basicosPredeterminados();
+      if (!pred) return;
+      const r = await db.runTransaction(marca, v => v ? undefined : Date.now());
+      if (r.committed) await db.update(basRef, pred);
+    }
   };
 }
 
@@ -818,7 +835,16 @@ function crearStoreLocal(){
     escucharBasicos(cb){ cbsB.push(cb); cb(leerB()); },
     agregarBasico(item){ const d = leerB(); d["b" + Date.now().toString(36) + Math.random().toString(36).slice(2,6)] = item; guardarB(d); },
     borrarBasico(id){ const d = leerB(); delete d[id]; guardarB(d); },
-    cambiarBasico(id, datos){ const d = leerB(); if (d[id]) Object.assign(d[id], datos); guardarB(d); }
+    cambiarBasico(id, datos){ const d = leerB(); if (d[id]) Object.assign(d[id], datos); guardarB(d); },
+    async iniciarBasicos(){
+      const KI = KB + "_iniciados";
+      if (leerLS(KI, "")) return;
+      if (Object.keys(leerB()).length){ guardarLS(KI, "1"); return; }
+      const pred = await basicosPredeterminados();
+      if (!pred) return;
+      guardarLS(KI, "1");
+      guardarB({ ...pred, ...leerB() });
+    }
   };
 }
 
@@ -1897,6 +1923,7 @@ async function conectar(){
   }
   store.escuchar(d => { items = d; render(); refrescarBasica(); });
   store.escucharBasicos(d => { basicos = d; render(); refrescarBasica(); });
+  store.iniciarBasicos().catch(() => {});
 }
 
 aplicarIdioma();
